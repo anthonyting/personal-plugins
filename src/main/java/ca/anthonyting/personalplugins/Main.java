@@ -8,21 +8,35 @@ public class Main extends JavaPlugin {
     public static Main getPlugin() {
         return instance;
     }
-    private ServerListListener serverListListener;
+    private ServerListListener serverListListener = null;
 
     @Override
     public void onEnable() {
         instance = this;
-        this.saveDefaultConfig();
 
-        getServer().getPluginManager().registerEvents(new PlayerHeadListener(), this);
+        saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
 
-        serverListListener = new ServerListListener();
-        getServer().getPluginManager().registerEvents(serverListListener, this);
+        if (getConfig().getBoolean("disable-player-head-drop")) {
+            getLogger().info("Player Head Drop disabled.");
+        } else {
+            getServer().getPluginManager().registerEvents(new PlayerHeadListener(), this);
+        }
+
+        if (getConfig().getBoolean("disable-console-rename")) {
+            getLogger().info("Console Rename disabled.");
+        } else {
+            serverListListener = new ServerListListener();
+            getServer().getPluginManager().registerEvents(serverListListener, this);
+        }
     }
 
     @Override
     public void onDisable() {
+        if (serverListListener == null) {
+            return;
+        }
         if (serverListListener.setTitle(serverListListener.getOrigTitle())) {
             getLogger().info("Resetting title to original title...");
         } else {

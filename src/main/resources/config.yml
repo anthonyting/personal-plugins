@@ -4,3 +4,7 @@
 # only if renamed-console-title is not set to anything. If renamed-console-title
 # is set to something, this does nothing.
 max-console-title-length: 30
+
+disable-console-rename: false
+
+disable-player-head-drop: false
