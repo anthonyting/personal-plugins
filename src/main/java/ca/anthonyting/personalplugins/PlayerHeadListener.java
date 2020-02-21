@@ -19,6 +19,9 @@ import org.bukkit.GameRule;
 
 public class PlayerHeadListener implements Listener {
 
+    private Creeper previousCreeper = null;
+    private Main plugin = Main.getPlugin();
+
     private static ItemStack makeHead(Player player) {
         // returns null if setting the player of the skull fails
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -46,7 +49,6 @@ public class PlayerHeadListener implements Listener {
         return null;
     }
 
-    private Creeper previousCreeper = null;
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         // drop a player head if player killed by charged creeper
@@ -62,7 +64,7 @@ public class PlayerHeadListener implements Listener {
                 previousCreeper = creeperThatKilledPlayer;
                 ItemStack playerHead = makeHead(player);
                 if (playerHead != null) {
-//                    Main.getPlugin().getLogger().info("Player head generated at " + player.getLocation().toString() + " for " + player.getName());
+                    plugin.getLogger().info("Player head generated at " + player.getLocation().toString() + " for " + player.getName());
                     currentWorld.dropItemNaturally(player.getLocation(), playerHead);
                 }
             }
