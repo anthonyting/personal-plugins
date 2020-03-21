@@ -23,7 +23,7 @@ public class MobSpawnerListener implements Listener {
                 count++;
             }
         }
-        if (count > 100) {
+        if (count > 200) {
             e.setCancelled(true);
         }
     }
