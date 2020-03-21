@@ -16,7 +16,7 @@ public class MobSpawnerListener implements Listener {
             return;
         }
         EntityType thisEntityType = e.getEntityType();
-        List<Entity> nearbyEntities = e.getEntity().getNearbyEntities(20, 20, 20);
+        List<Entity> nearbyEntities = e.getEntity().getNearbyEntities(30, 30, 30);
         int count = 0;
         for (Entity entity : nearbyEntities) {
             if (entity.getType() == thisEntityType) {
