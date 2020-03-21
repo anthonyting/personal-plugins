@@ -30,6 +30,9 @@ public class Main extends JavaPlugin {
             serverListListener = new ServerListListener();
             getServer().getPluginManager().registerEvents(serverListListener, this);
         }
+
+        getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
+
     }
 
     @Override
