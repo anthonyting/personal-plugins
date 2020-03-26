@@ -2,3 +2,6 @@ main: ca.anthonyting.personalplugins.Main
 name: PersonalPlugins
 version: "0.1"
 api-version: "1.15"
+commands:
+  tempbackup:
+    description: copies and overwrites files at specified directory

@@ -8,3 +8,8 @@ max-console-title-length: 30
 disable-console-rename: false
 
 disable-player-head-drop: false
+
+temp-backup-directory: ""
+
+# frequency of backups in seconds
+backup-freq: 3600

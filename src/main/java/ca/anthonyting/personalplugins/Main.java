@@ -1,6 +1,11 @@
 package ca.anthonyting.personalplugins;
 
+import ca.anthonyting.personalplugins.commands.Backup;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class Main extends JavaPlugin {
     
@@ -9,6 +14,7 @@ public class Main extends JavaPlugin {
         return instance;
     }
     private ServerListListener serverListListener = null;
+    private static TempBackup backupMaker;
 
     @Override
     public void onEnable() {
@@ -33,6 +39,17 @@ public class Main extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
 
+        String backupDirectoryName = getConfig().getString("temp-backup-directory");
+        long delay = getConfig().getLong("backup-freq");
+        if (backupDirectoryName == null || delay < 1) {
+            getLogger().info("Backups disabled.");
+        } else {
+            Path backupPath = Paths.get(backupDirectoryName);
+            backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath);
+            backupMaker.runTaskTimer(this, delay*20, delay*20);
+        }
+
+        getCommand("tempbackup").setExecutor(new Backup());
     }
 
     @Override
@@ -45,5 +62,9 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("Failed to reset title to original title!");
         }
+    }
+
+    public static TempBackup getBackupMaker() {
+        return backupMaker;
     }
 }
