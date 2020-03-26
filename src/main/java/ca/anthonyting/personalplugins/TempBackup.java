@@ -43,16 +43,16 @@ public class TempBackup extends BukkitRunnable {
     }
 
     // modified from https://stackoverflow.com/a/53275074/11972694
-    public void pack() throws IOException {
-        Path p = Paths.get(backupPath.toString(), "backup.zip");
+    private void pack() throws IOException {
+        Path currBackup = Paths.get(backupPath.toString(), "backup.zip");
 
-        if (Files.exists(p) && !p.toFile().delete()) {
-            throw new IOException("Error deleting existing backup.zip!");
+        if (Files.exists(currBackup)) {
+            Files.move(currBackup, currBackup.resolveSibling("backup-prev.zip"), StandardCopyOption.REPLACE_EXISTING);
         }
 
-        Files.createFile(p);
+        Files.createFile(currBackup);
 
-        ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p));
+        ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(currBackup));
         for (Path directory : directories) {
             main.getLogger().info("Backing up " + directory.getFileName() + "...");
             try (Stream<Path> paths = Files.walk(directory)) {
