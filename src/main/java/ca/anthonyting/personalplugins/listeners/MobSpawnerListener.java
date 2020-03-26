@@ -1,4 +1,4 @@
-package ca.anthonyting.personalplugins;
+package ca.anthonyting.personalplugins.listeners;
 
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
