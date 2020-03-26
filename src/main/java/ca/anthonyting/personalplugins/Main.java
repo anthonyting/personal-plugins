@@ -5,6 +5,7 @@ import ca.anthonyting.personalplugins.listeners.MobSpawnerListener;
 import ca.anthonyting.personalplugins.listeners.PlayerHeadListener;
 import ca.anthonyting.personalplugins.listeners.ServerListListener;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,6 +49,12 @@ public class Main extends JavaPlugin {
         } else {
             Path backupPath = Paths.get(backupDirectoryName);
             backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath);
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    Main.getPlugin().getServer().dispatchCommand(Main.getPlugin().getServer().getConsoleSender(), "save-all");
+                }
+            }.runTaskTimer(this, delay*20, delay*20);
             backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 

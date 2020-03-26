@@ -1,7 +1,6 @@
 package ca.anthonyting.personalplugins.commands;
 
 import ca.anthonyting.personalplugins.Main;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -26,6 +25,8 @@ public class Backup implements CommandExecutor {
             commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', "Permission denied."));
             return true;
         }
+
+        main.getServer().dispatchCommand(main.getServer().getConsoleSender(), "save-all");
         new BukkitRunnable() {
             @Override
             public void run() {

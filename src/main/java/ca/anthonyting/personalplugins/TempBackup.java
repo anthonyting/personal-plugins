@@ -32,15 +32,14 @@ public class TempBackup extends BukkitRunnable {
      * @throws IOException when creating backupDirectory fails or copying to directories fails
      */
     public void runBackup() throws IOException {
-//        main.getServer().dispatchCommand(main.getServer().getConsoleSender(), "save-all");
-//        main.getLogger().info("Backing up files...");
+        main.getLogger().info("Backing up files...");
         try {
             Files.createDirectory(backupPath);
         } catch (FileAlreadyExistsException e) {
             // then just continue
         }
         pack();
-//        main.getLogger().info("Backup success!");
+        main.getLogger().info("Backup success!");
     }
 
     // modified from https://stackoverflow.com/a/53275074/11972694
@@ -55,7 +54,7 @@ public class TempBackup extends BukkitRunnable {
 
         ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p));
         for (Path directory : directories) {
-//            main.getLogger().info("Backing up " + directory.getFileName() + "...");
+            main.getLogger().info("Backing up " + directory.getFileName() + "...");
             try (Stream<Path> paths = Files.walk(directory)) {
                 String currentZipDirectory = directory.getFileName().toString();
                 paths.filter(path -> !Files.isDirectory(path))
@@ -97,7 +96,7 @@ public class TempBackup extends BukkitRunnable {
             runBackup();
         } catch (IOException e) {
             e.printStackTrace();
-//            main.getLogger().warning("Error backing up files");
+            main.getLogger().warning("Error backing up files");
         }
     }
 }
