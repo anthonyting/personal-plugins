@@ -1,13 +1,10 @@
 package ca.anthonyting.personalplugins;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.nio.file.*;
-import java.util.Arrays;
 import java.util.Properties;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;

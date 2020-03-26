@@ -62,6 +62,7 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("Failed to reset title to original title!");
         }
+        getServer().getScheduler().cancelTasks(this);
     }
 
     public static TempBackup getBackupMaker() {
