@@ -48,7 +48,7 @@ public class Main extends JavaPlugin {
         } else {
             Path backupPath = Paths.get(backupDirectoryName);
             backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath);
-            backupMaker.runTaskTimer(this, delay*20, delay*20);
+            backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 
         getCommand("tempbackup").setExecutor(new Backup());
