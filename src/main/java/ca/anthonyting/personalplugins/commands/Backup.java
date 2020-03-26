@@ -1,12 +1,14 @@
 package ca.anthonyting.personalplugins.commands;
 
 import ca.anthonyting.personalplugins.Main;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class Backup implements CommandExecutor {
 
@@ -24,7 +26,12 @@ public class Backup implements CommandExecutor {
             commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', "Permission denied."));
             return true;
         }
-        Main.getBackupMaker().run();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Main.getBackupMaker().run();
+            }
+        }.runTaskAsynchronously(main);
         return true;
     }
 }
