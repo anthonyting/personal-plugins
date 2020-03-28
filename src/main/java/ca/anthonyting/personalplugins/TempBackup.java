@@ -14,17 +14,22 @@ public class TempBackup extends BukkitRunnable {
 
     private Path[] directories;
     private Path backupPath;
-    private Plugin main;
+    private final Plugin main;
+    private long delay;
+    private boolean havePlayersBeenOnline;
+    private boolean isPlayerCountZero;
 
     /**
-     *
      * @param directories a path list of directories to copy
      * @param backupPath a directory to put the directories after a copy
      */
-    public TempBackup(Path[] directories, Path backupPath) {
+    public TempBackup(Path[] directories, Path backupPath, long delay) {
         this.directories = directories;
         this.backupPath = backupPath;
+        this.delay = delay;
         this.main = Main.getPlugin();
+        this.havePlayersBeenOnline = false;
+        this.isPlayerCountZero = true;
     }
 
     /**
@@ -32,6 +37,12 @@ public class TempBackup extends BukkitRunnable {
      * @throws IOException when creating backupDirectory fails or copying to directories fails
      */
     public void runBackup() throws IOException {
+        if (!havePlayersBeenOnline) {
+            main.getLogger().info("No players online " + delay + " seconds. Backup cancelled.");
+            return;
+        } else if (isPlayerCountZero) {
+            havePlayersBeenOnline = false;
+        }
         main.getLogger().info("Backing up files...");
         try {
             Files.createDirectory(backupPath);
@@ -87,7 +98,13 @@ public class TempBackup extends BukkitRunnable {
         Path nether = basePath.resolve(worldName + "_nether");
         Path end = basePath.resolve(worldName + "_the_end");
 
-        return new Path[] {overworld, nether, end};
+        if (nether.toFile().exists()) {
+            if (end.toFile().exists()) {
+                return new Path[] {overworld, nether, end};
+            }
+            return new Path[] {overworld, nether};
+        }
+        return new Path[] {overworld};
     }
 
     @Override
@@ -98,5 +115,21 @@ public class TempBackup extends BukkitRunnable {
             e.printStackTrace();
             main.getLogger().warning("Error backing up files");
         }
+    }
+
+    public void setHavePlayersBeenOnline(boolean havePlayersBeenOnline) {
+        this.havePlayersBeenOnline = havePlayersBeenOnline;
+    }
+
+    public void setPlayerCountZero(boolean playerCountZero) {
+        this.isPlayerCountZero = playerCountZero;
+    }
+
+    public boolean havePlayersBeenOnline() {
+        return havePlayersBeenOnline;
+    }
+
+    public boolean isPlayerCountZero() {
+        return isPlayerCountZero;
     }
 }

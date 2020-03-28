@@ -2,6 +2,7 @@ package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.Backup;
 import ca.anthonyting.personalplugins.listeners.MobSpawnerListener;
+import ca.anthonyting.personalplugins.listeners.PlayerCountListener;
 import ca.anthonyting.personalplugins.listeners.PlayerHeadListener;
 import ca.anthonyting.personalplugins.listeners.ServerListListener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -47,11 +48,15 @@ public class Main extends JavaPlugin {
         if (backupDirectoryName == null || delay < 1) {
             getLogger().info("Backups disabled.");
         } else {
+            getServer().getPluginManager().registerEvents(new PlayerCountListener(), this);
             Path backupPath = Paths.get(backupDirectoryName);
-            backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath);
+            backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath, delay);
             new BukkitRunnable() {
                 @Override
                 public void run() {
+                    if (!backupMaker.havePlayersBeenOnline()) {
+                        return;
+                    }
                     Main.getPlugin().getServer().dispatchCommand(Main.getPlugin().getServer().getConsoleSender(), "save-all");
                 }
             }.runTaskTimer(this, delay*20, delay*20);
