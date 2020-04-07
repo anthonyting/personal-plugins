@@ -38,9 +38,17 @@ public class Main extends JavaPlugin {
             getServer().getPluginManager().registerEvents(serverListListener, this);
         }
 
-        getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+        if (getConfig().getBoolean("allow-donkey-dupe")) {
+            getLogger().info("Donkey Dupe allowed.");
+        } else {
+            getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+        }
 
-        getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
+        if (getConfig().getBoolean("allow-many-spawner-mobs")) {
+            getLogger().info("Allow spawners to generate many mobs in a region.");
+        } else {
+            getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
+        }
 
         String backupDirectoryName = getConfig().getString("temp-backup-directory");
         long delay = getConfig().getLong("backup-freq");

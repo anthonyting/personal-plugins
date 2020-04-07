@@ -4,8 +4,10 @@ What this plugin does:
 
 - adds natural player head drops from charged creepers blowing up players
 - renames the console window to show the current number of players online
-- adds a periodic backup of world files (as a zip) with delay and backup directory specified in config.yml
+- adds a periodic backup of world files (as a zip)
 - periodic backup saves the last two versions of the worlds in `backup.zip` and `backup-prev.zip`
+- stops spawners from spawning if too many of its creations are nearby
+- disable donkey dupe glitch
 
 ## How to build
 
@@ -30,6 +32,10 @@ max-console-title-length: 30
 disable-console-rename: false
 
 disable-player-head-drop: false
+
+allow-many-spawner-mobs: false
+
+allow-donkey-dupe: false
 
 temp-backup-directory: ''
 
