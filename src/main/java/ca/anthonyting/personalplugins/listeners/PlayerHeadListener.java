@@ -17,11 +17,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class PlayerHeadListener implements Listener {
 
     private Creeper previousCreeper = null;
-    private Main plugin = Main.getPlugin();
+    private JavaPlugin plugin = Main.getPlugin();
 
     private static ItemStack makeHead(Player player) {
         // returns null if setting the player of the skull fails
@@ -55,7 +56,8 @@ public class PlayerHeadListener implements Listener {
         // drop a player head if player killed by charged creeper
         Player player = event.getEntity();
         World currentWorld = player.getWorld();
-        if (currentWorld.getGameRuleValue(GameRule.DO_MOB_LOOT)) {
+        Boolean doMobLoot = currentWorld.getGameRuleValue(GameRule.DO_MOB_LOOT);
+        if (doMobLoot != null && doMobLoot) {
             Creeper creeperThatKilledPlayer = chargedCreeperThatKilledEntity(player);
             if (creeperThatKilledPlayer != null) {
                 if (creeperThatKilledPlayer == previousCreeper) {

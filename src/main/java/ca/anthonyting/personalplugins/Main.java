@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 public class Main extends JavaPlugin {
     
     private static Main instance;
-    public static Main getPlugin() {
+    public static JavaPlugin getPlugin() {
         return instance;
     }
     private ServerListListener serverListListener = null;

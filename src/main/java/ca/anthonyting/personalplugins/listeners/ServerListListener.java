@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.java.JavaPlugin;
 
 interface CLibrary extends Library {
     CLibrary INSTANCE = Native.load((Platform.isWindows() ? "kernel32" : "c"), CLibrary.class, W32APIOptions.DEFAULT_OPTIONS);
@@ -20,7 +21,7 @@ interface CLibrary extends Library {
 
 public class ServerListListener implements Listener {
     private CLibrary cLib = CLibrary.INSTANCE;
-    private final Main plugin = Main.getPlugin();
+    private final JavaPlugin plugin = Main.getPlugin();
     private String origTitle;
     private String renamedTitle = plugin.getConfig().getString("renamed-console-title");
 

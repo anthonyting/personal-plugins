@@ -1,28 +1,40 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.listeners.PlayerHeadListener;
-import org.bukkit.Bukkit;
-import org.bukkit.GameRule;
-import org.bukkit.Location;
-import org.bukkit.World;
+import org.bukkit.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Creeper;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.ItemFactory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.PluginLoader;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.MockClassLoader;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import java.io.File;
+import java.io.InputStream;
+import java.security.ProtectionDomain;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -31,10 +43,12 @@ import java.util.logging.Logger;
 @PrepareForTest({Bukkit.class, Main.class, PlayerDeathEvent.class, EntityDamageByEntityEvent.class})
 public class ValidExplosion
 {
+
     @BeforeClass
     public static void setUp()
     {
         PowerMockito.mockStatic(Bukkit.class);
+        PowerMockito.mockStatic(Main.class, invocationOnMock -> null);
 
         ItemFactory itemFactory = Mockito.mock(ItemFactory.class);
         Mockito.when(Bukkit.getItemFactory()).thenReturn(itemFactory);
@@ -69,15 +83,16 @@ public class ValidExplosion
         Mockito.when(player.getLastDamageCause()).thenReturn(playerDamagedByEntity);
         Mockito.when(playerDamagedByEntity.getDamager()).thenReturn(creeper);
 
-        PlayerHeadListener playerHeadListener = new PlayerHeadListener();
 
         Logger log = Logger.getLogger("mockLogger");
-        PowerMockito.mockStatic(Main.class);
-        Main plugin = Mockito.mock(Main.class);
 
-        Mockito.when(Main.getPlugin()).thenReturn(plugin);
-        Mockito.when(plugin.getLogger()).thenReturn(log);
+        JavaPlugin p = PowerMockito.mock(JavaPlugin.class);
+        Mockito.when(p.getLogger()).thenReturn(log);
+        Mockito.when(Main.getPlugin()).thenReturn(p);
 
+        Mockito.when(playerDeath.getEntity()).thenReturn(player);
+
+        PlayerHeadListener playerHeadListener = new PlayerHeadListener();
         playerHeadListener.onPlayerDeath(playerDeath);
     }
 }
