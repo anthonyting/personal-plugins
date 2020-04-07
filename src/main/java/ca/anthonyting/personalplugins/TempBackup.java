@@ -1,10 +1,12 @@
 package ca.anthonyting.personalplugins;
 
+import ca.anthonyting.personalplugins.util.DirectorySizer;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.LinkedList;
 import java.util.Properties;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -12,7 +14,7 @@ import java.util.zip.ZipOutputStream;
 
 public class TempBackup extends BukkitRunnable {
 
-    private Path[] directories;
+    private LinkedList<Path> directories = null;
     private Path backupPath;
     private final Plugin main;
     private long delay;
@@ -20,11 +22,10 @@ public class TempBackup extends BukkitRunnable {
     private boolean isPlayerCountZero;
 
     /**
-     * @param directories a path list of directories to copy
      * @param backupPath a directory to put the directories after a copy
+     * @param delay the amount of time in between each backup
      */
-    public TempBackup(Path[] directories, Path backupPath, long delay) {
-        this.directories = directories;
+    public TempBackup(Path backupPath, long delay) {
         this.backupPath = backupPath;
         this.delay = delay;
         this.main = Main.getPlugin();
@@ -76,7 +77,7 @@ public class TempBackup extends BukkitRunnable {
                         Files.copy(path, zs);
                         zs.closeEntry();
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        throw new RuntimeException(e);
                     }
                 });
             }
@@ -84,7 +85,12 @@ public class TempBackup extends BukkitRunnable {
         zs.close();
     }
 
-    public static Path[] getWorldDirectories() {
+    /**
+     * Gets world directories based on server.properties (main world, nether world, and end world)
+     * @return a sorted (by file size) linked list of world directories
+     */
+    private static LinkedList<Path> getWorldDirectories() throws IOException {
+
         Properties properties = new Properties();
         try (BufferedReader serverProperties = new BufferedReader(new FileReader("server.properties"))){
             properties.load(serverProperties);
@@ -98,18 +104,58 @@ public class TempBackup extends BukkitRunnable {
         Path nether = basePath.resolve(worldName + "_nether");
         Path end = basePath.resolve(worldName + "_the_end");
 
-        if (nether.toFile().exists()) {
-            if (end.toFile().exists()) {
-                return new Path[] {overworld, nether, end};
-            }
-            return new Path[] {overworld, nether};
+        LinkedList<Path> worldDirectoriesSorted = new LinkedList<>();
+
+        if (!overworld.toFile().exists()) {
+            return worldDirectoriesSorted;
         }
-        return new Path[] {overworld};
+
+        worldDirectoriesSorted.addFirst(overworld);
+
+        DirectorySizer directorySizer = new DirectorySizer();
+        Files.walkFileTree(overworld, directorySizer);
+        long overworldSize = directorySizer.getDirectorySize();
+        directorySizer.resetDirectorySize();
+
+        // this section sorts worldDirectories by file size. performs well, but could be refactored for readability
+        if (nether.toFile().exists()) {
+            Files.walkFileTree(nether, directorySizer);
+            long netherSize = directorySizer.getDirectorySize();
+            directorySizer.resetDirectorySize();
+            if (netherSize < overworldSize) {
+                worldDirectoriesSorted.addFirst(nether);
+            } else {
+                worldDirectoriesSorted.addLast(nether);
+            }
+            if (end.toFile().exists()) {
+                Files.walkFileTree(end, directorySizer);
+                long endSize = directorySizer.getDirectorySize();
+                directorySizer.resetDirectorySize();
+                if (endSize < overworldSize && endSize < netherSize) {
+                    worldDirectoriesSorted.addFirst(end);
+                } else if (endSize > overworldSize && endSize > netherSize) {
+                    worldDirectoriesSorted.addLast(end);
+                } else {
+                    worldDirectoriesSorted.add(1, end);
+                }
+            }
+        } else if (end.toFile().exists()) { // nether does not exist but end does
+            Files.walkFileTree(end, directorySizer);
+            long endSize = directorySizer.getDirectorySize();
+            directorySizer.resetDirectorySize();
+            if (endSize < overworldSize) {
+                worldDirectoriesSorted.addFirst(end);
+            } else {
+                worldDirectoriesSorted.addLast(end);
+            }
+        }
+        return worldDirectoriesSorted;
     }
 
     @Override
     public void run() {
         try {
+            directories = getWorldDirectories();
             runBackup();
         } catch (IOException e) {
             e.printStackTrace();

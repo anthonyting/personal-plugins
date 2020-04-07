@@ -1,10 +1,7 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.Backup;
-import ca.anthonyting.personalplugins.listeners.MobSpawnerListener;
-import ca.anthonyting.personalplugins.listeners.PlayerCountListener;
-import ca.anthonyting.personalplugins.listeners.PlayerHeadListener;
-import ca.anthonyting.personalplugins.listeners.ServerListListener;
+import ca.anthonyting.personalplugins.listeners.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -41,6 +38,8 @@ public class Main extends JavaPlugin {
             getServer().getPluginManager().registerEvents(serverListListener, this);
         }
 
+        getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+
         getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
 
         String backupDirectoryName = getConfig().getString("temp-backup-directory");
@@ -50,7 +49,7 @@ public class Main extends JavaPlugin {
         } else {
             getServer().getPluginManager().registerEvents(new PlayerCountListener(), this);
             Path backupPath = Paths.get(backupDirectoryName);
-            backupMaker = new TempBackup(TempBackup.getWorldDirectories(), backupPath, delay);
+            backupMaker = new TempBackup(backupPath, delay);
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -63,7 +62,7 @@ public class Main extends JavaPlugin {
             backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 
-        getCommand("tempbackup").setExecutor(new Backup());
+        getCommand("forcebackup").setExecutor(new Backup());
     }
 
     @Override

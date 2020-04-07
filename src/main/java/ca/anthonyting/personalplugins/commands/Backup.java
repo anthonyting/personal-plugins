@@ -30,7 +30,14 @@ public class Backup implements CommandExecutor {
         new BukkitRunnable() {
             @Override
             public void run() {
-                Main.getBackupMaker().run();
+                // force a backup, but do not interfere with scheduled backups
+                if (Main.getBackupMaker().havePlayersBeenOnline()) {
+                    Main.getBackupMaker().run();
+                } else {
+                    Main.getBackupMaker().setHavePlayersBeenOnline(true);
+                    Main.getBackupMaker().run();
+                    Main.getBackupMaker().setHavePlayersBeenOnline(false);
+                }
             }
         }.runTaskAsynchronously(main);
         return true;
