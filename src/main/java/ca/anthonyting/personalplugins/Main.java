@@ -1,7 +1,9 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.Backup;
+import ca.anthonyting.personalplugins.commands.PlayTime;
 import ca.anthonyting.personalplugins.listeners.*;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -44,16 +46,7 @@ public class Main extends JavaPlugin {
         }
     }
 
-    private void
-
-    @Override
-    public void onEnable() {
-        instance = this;
-
-        saveDefaultConfig();
-        getConfig().options().copyDefaults(true);
-        saveConfig();
-
+    private void initializeBackups() {
         String backupDirectoryName = getConfig().getString("temp-backup-directory");
         long delay = getConfig().getLong("backup-freq");
         if (backupDirectoryName == null || delay < 1) {
@@ -74,7 +67,27 @@ public class Main extends JavaPlugin {
             backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 
-        getCommand("forcebackup").setExecutor(new Backup());
+        PluginCommand forceBackup = getCommand("forcebackup");
+        if (forceBackup != null) {
+            forceBackup.setExecutor(new Backup());
+        }
+    }
+
+    @Override
+    public void onEnable() {
+        instance = this;
+
+        saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
+
+        registerListeners();
+        initializeBackups();
+
+        PluginCommand playtime = getCommand("playtime");
+        if (playtime != null) {
+            playtime.setExecutor(new PlayTime());
+        }
     }
 
     @Override
