@@ -17,14 +17,7 @@ public class Main extends JavaPlugin {
     private ServerListListener serverListListener = null;
     private static TempBackup backupMaker;
 
-    @Override
-    public void onEnable() {
-        instance = this;
-
-        saveDefaultConfig();
-        getConfig().options().copyDefaults(true);
-        saveConfig();
-
+    private void registerListeners() {
         if (getConfig().getBoolean("disable-player-head-drop")) {
             getLogger().info("Player Head Drop disabled.");
         } else {
@@ -49,6 +42,17 @@ public class Main extends JavaPlugin {
         } else {
             getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
         }
+    }
+
+    private void
+
+    @Override
+    public void onEnable() {
+        instance = this;
+
+        saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
 
         String backupDirectoryName = getConfig().getString("temp-backup-directory");
         long delay = getConfig().getLong("backup-freq");
