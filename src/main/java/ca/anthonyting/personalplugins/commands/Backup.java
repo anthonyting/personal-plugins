@@ -15,14 +15,15 @@ public class Backup implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
+        if (commandSender instanceof Player && !commandSender.hasPermission("personalplugins.forcebackup")) {
+            commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', "Permission denied."));
+            return true;
+        }
+
         String backupDirectoryName = main.getConfig().getString("temp-backup-directory");
         long delay = main.getConfig().getLong("backup-freq");
         if (backupDirectoryName == null || delay < 1) {
             main.getLogger().info("Backups are disabled.");
-            return true;
-        }
-        if (commandSender instanceof Player && !commandSender.hasPermission("forcebackup")) {
-            commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', "Permission denied."));
             return true;
         }
 

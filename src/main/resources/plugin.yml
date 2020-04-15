@@ -1,9 +1,24 @@
 main: ca.anthonyting.personalplugins.Main
-name: PersonalPlugins
+name: Custom
 version: "0.1"
 api-version: "1.15"
 commands:
   forcebackup:
-    description: copies and overwrites files at specified directory
+    description: Copies and overwrites files at directory specified in config
+    permission: personalplugins.forcebackup
   playtime:
-    description: get the playtime of yourself or another player
+    description: Get the playtime of yourself or another player
+    permission: personalplugins.playtime
+    usage: /<command> [player]
+permissions:
+  personalplugins.forcebackup:
+    description: Allows forcebackup
+    default: op
+  personalplugins.playtime:
+    description: Allows playtime
+    default: true
+  personalplugins.*:
+    description: Wildcard permission
+    default: op
+    children:
+      personalplugins.forcebackup: true

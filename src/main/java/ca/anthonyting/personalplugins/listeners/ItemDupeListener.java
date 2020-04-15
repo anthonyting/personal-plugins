@@ -12,7 +12,7 @@ public class ItemDupeListener implements Listener {
     public static void onPlayerQuit(PlayerQuitEvent e) {
         if (e.getPlayer().isInsideVehicle() && (e.getPlayer().getVehicle() instanceof ChestedHorse) && ((ChestedHorse) e.getPlayer().getVehicle()).isCarryingChest()) {
             e.getPlayer().getVehicle().eject();
-            Main.getPlugin().getLogger().warning(e.getPlayer().getName() + " disconnected while on a " + e.getPlayer().getVehicle().getType());
+            Main.getPlugin().getLogger().info(e.getPlayer().getName() + " disconnected while on a " + e.getPlayer().getVehicle().getType());
         }
     }
 }
