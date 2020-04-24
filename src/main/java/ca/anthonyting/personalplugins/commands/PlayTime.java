@@ -13,7 +13,17 @@ import java.util.Locale;
 
 public class PlayTime implements CommandExecutor {
 
-    private void messageTimePlayedInHours(CommandSender sender, String targetName) {
+    private String playerHasNotPlayedMessage(String playerName) {
+        return ChatColor.DARK_AQUA + playerName + ChatColor.WHITE + " has never been on this server.";
+    }
+
+    private String playerHasPlayedMessage(String playerName, Double timePlayedInHours) {
+        String timePlayedAsString = String.format(Locale.ENGLISH, "%1$,.2f", timePlayedInHours);
+        return ChatColor.DARK_AQUA + playerName + ChatColor.WHITE + " has played on this server for " +
+                ChatColor.DARK_AQUA + timePlayedAsString + ChatColor.WHITE + " hours.";
+    }
+
+    private Double getTimePlayedInHours(String targetName) {
         OfflinePlayer target = null;
         for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
             if (offlinePlayer.getName() != null &&
@@ -24,23 +34,27 @@ public class PlayTime implements CommandExecutor {
             }
         }
         if (target == null) {
-            sender.sendMessage(ChatColor.DARK_AQUA + targetName + ChatColor.WHITE + " has never been on this server.");
-            return;
+            return null;
         }
         int timePlayedInSeconds = target.getStatistic(Statistic.PLAY_ONE_MINUTE)/20;
         int secondsInAnHour = 3600;
         String timePlayedInHours = String.format(Locale.ENGLISH, "%1$,.2f", ((double) timePlayedInSeconds) / secondsInAnHour);
-        sender.sendMessage(ChatColor.DARK_AQUA + target.getName() + ChatColor.WHITE + " has played on this server for " + ChatColor.DARK_AQUA + timePlayedInHours + ChatColor.WHITE + " hours.");
+        return (double) timePlayedInSeconds / secondsInAnHour;
     }
 
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
 
         if (strings.length > 0) {
-            messageTimePlayedInHours(commandSender, strings[0]);
+            Double timePlayed = getTimePlayedInHours(strings[0]);
+            if (timePlayed == null) {
+                commandSender.sendMessage(playerHasNotPlayedMessage(strings[0]));
+            } else {
+                commandSender.sendMessage(playerHasPlayedMessage(strings[0], timePlayed));
+            }
         } else if (commandSender instanceof Player) {
             Player p = (Player) commandSender;
-            messageTimePlayedInHours(p, p.getName());
+            commandSender.sendMessage(playerHasPlayedMessage(p.getName(), getTimePlayedInHours(p.getName())));
         }
 
         return true;

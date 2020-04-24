@@ -12,6 +12,7 @@ import java.util.Locale;
 
 public class ItemDupeListener implements Listener {
 
+    // stop RuckusHouse and The_Grinch_69 from duping items
     @EventHandler
     public static void onPlayerQuit(PlayerQuitEvent e) {
         Player p = e.getPlayer();
