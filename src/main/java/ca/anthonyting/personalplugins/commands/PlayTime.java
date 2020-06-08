@@ -75,9 +75,7 @@ public class PlayTime implements CommandExecutor {
             } else {
                 commandSender.sendMessage(playerHasPlayedMessage(strings[0], timePlayed));
             }
-        } else if (commandSender instanceof Player) {
-            // TODO consider storing result
-            Player p = (Player) commandSender;
+        } else {
             SortedMap<Double, OfflinePlayer> allPlayers = new TreeMap<>(Collections.reverseOrder());
             double totalTimePlayed = 0;
             double currentTimePlayed;
@@ -99,7 +97,7 @@ public class PlayTime implements CommandExecutor {
             int playerRank = 1;
             while (iterator.hasNext() && (lineCount <= maxLineCount - 2)) { // reserve two lines for showing server total and self if not in top
                 currentEntry = iterator.next();
-                if (!playerFound && currentEntry.getValue().equals(p)) {
+                if (!playerFound && currentEntry.getValue().equals(commandSender)) {
                     bold = true;
                     playerFound = true;
                 } else {
@@ -109,11 +107,11 @@ public class PlayTime implements CommandExecutor {
                 lineCount++;
             }
 
-            if (!playerFound) {
+            if (!playerFound && commandSender instanceof Player) {
                 // always show this player
                 while (iterator.hasNext() && lineCount <= maxLineCount - 1) {
                     currentEntry = iterator.next();
-                    if (currentEntry.getValue().equals(p)) {
+                    if (currentEntry.getValue().equals(commandSender)) {
                         // add new line if there is a next element and the line is not the last one
                         playersShown.append(getFormattedMessage(currentEntry.getValue(), playerRank, true, iterator.hasNext() && lineCount != maxLineCount - 1));
                         lineCount++;
@@ -129,7 +127,13 @@ public class PlayTime implements CommandExecutor {
                     lineCount++;
                 }
             }
-            commandSender.sendMessage(serverTotal + playersShown.toString());
+            if (commandSender instanceof Player) {
+                commandSender.sendMessage(serverTotal + playersShown.toString());
+            } else {
+                for (String line : (serverTotal + playersShown.toString()).split("\\n")) {
+                    Bukkit.getLogger().info(line);
+                }
+            }
         }
 
         return true;
