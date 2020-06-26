@@ -69,7 +69,7 @@ public class TempBackup extends BukkitRunnable {
             main.getLogger().info("Backing up " + directory.getFileName() + "...");
             try (Stream<Path> paths = Files.walk(directory)) {
                 String currentZipDirectory = directory.getFileName().toString();
-                paths.filter(path -> !Files.isDirectory(path))
+                paths.filter(path -> !Files.isDirectory(path) && !path.getFileName().toString().equals("session.lock"))
                 .forEach(path -> {
                     ZipEntry zipEntry = new ZipEntry(currentZipDirectory + File.separator + directory.relativize(path).toString());
                     try {
