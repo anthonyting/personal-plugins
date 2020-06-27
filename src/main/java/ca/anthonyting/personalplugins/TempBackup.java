@@ -1,6 +1,7 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.util.DirectorySizer;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -99,7 +100,7 @@ public class TempBackup extends BukkitRunnable {
             return null;
         }
         String worldName = properties.getProperty("level-name");
-        Path basePath = Paths.get("").toAbsolutePath();
+        Path basePath = Bukkit.getWorldContainer().toPath();
         Path overworld = basePath.resolve(worldName);
         Path nether = basePath.resolve(worldName + "_nether");
         Path end = basePath.resolve(worldName + "_the_end");
