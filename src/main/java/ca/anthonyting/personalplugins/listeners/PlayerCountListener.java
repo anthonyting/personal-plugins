@@ -16,10 +16,6 @@ public class PlayerCountListener implements Listener {
 
     @EventHandler
     public void onPlayerLeave(PlayerQuitEvent e) {
-        if (e.getPlayer().getServer().getOnlinePlayers().size()-1 <= 0) {
-            Main.getBackupMaker().setPlayerCountZero(true);
-        } else {
-            Main.getBackupMaker().setPlayerCountZero(false);
-        }
+        Main.getBackupMaker().setPlayerCountZero(e.getPlayer().getServer().getOnlinePlayers().size() - 1 <= 0);
     }
 }

@@ -22,7 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class PlayerHeadListener implements Listener {
 
     private Creeper previousCreeper = null;
-    private JavaPlugin plugin = Main.getPlugin();
+    private final JavaPlugin plugin = Main.getPlugin();
 
     private static ItemStack makeHead(Player player) {
         // returns null if setting the player of the skull fails
