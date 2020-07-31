@@ -40,7 +40,7 @@ public class TempBackup extends BukkitRunnable {
      */
     public void runBackup() throws IOException {
         if (!havePlayersBeenOnline) {
-            main.getLogger().info("No players online " + delay + " seconds. Backup cancelled.");
+            main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
             return;
         } else if (isPlayerCountZero) {
             havePlayersBeenOnline = false;
