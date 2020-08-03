@@ -9,13 +9,20 @@ commands:
   playtime:
     description: Get the playtime of yourself or another player
     permission: personalplugins.playtime
-    usage: /<command> [player]
+    usage: "Usage: /<command> [player]"
+  getstat:
+    description: Get a stat of yourself or another player
+    permission: personalplugins.getstat
+    usage: "Usage: /<command> [stat] [player]"
 permissions:
   personalplugins.forcebackup:
     description: Allows forcebackup
     default: op
   personalplugins.playtime:
     description: Allows playtime
+    default: true
+  personalplugins.getstat:
+    description: Allows getstat
     default: true
   personalplugins.*:
     description: Wildcard permission

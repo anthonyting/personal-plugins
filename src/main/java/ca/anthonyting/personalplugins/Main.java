@@ -1,8 +1,10 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.Backup;
+import ca.anthonyting.personalplugins.commands.GetStat;
 import ca.anthonyting.personalplugins.commands.PlayTime;
 import ca.anthonyting.personalplugins.listeners.*;
+import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -87,6 +89,12 @@ public class Main extends JavaPlugin {
         PluginCommand playtime = getCommand("playtime");
         if (playtime != null) {
             playtime.setExecutor(new PlayTime());
+        }
+
+        PluginCommand getStat = getCommand("getstat");
+        if (getStat != null) {
+            getStat.setExecutor(new GetStat());
+            getStat.setTabCompleter(new GetStatComplete());
         }
     }
 
