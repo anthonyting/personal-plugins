@@ -30,7 +30,10 @@ public class GetStatComplete implements TabCompleter {
                     } else if (strings.length == 2) {
                         OfflinePlayer[] list = Bukkit.getOfflinePlayers();
                         for (OfflinePlayer offlinePlayer : list) {
-                            listAsString.add(offlinePlayer.getName());
+                            var name = offlinePlayer.getName();
+                            if (strings[1].isBlank() || name != null && name.toLowerCase().startsWith(strings[1])) {
+                                listAsString.add(offlinePlayer.getName());
+                            }
                         }
                     }
 

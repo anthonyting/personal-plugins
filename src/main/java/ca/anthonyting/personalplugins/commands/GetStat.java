@@ -50,7 +50,7 @@ public class GetStat implements CommandExecutor {
         } else {
             if (commandSender instanceof Player) {
                 final OfflinePlayer p = (OfflinePlayer) commandSender;
-                Integer stat = null;
+                Integer stat;
                 if (strings.length == 1) {
                     stat = getStatistic(p, strings[0]);
                 } else {
@@ -58,6 +58,7 @@ public class GetStat implements CommandExecutor {
                         stat = getStatisticOfName(strings[1], strings[0]);
                     } catch (PlayerNotFoundException e) {
                         commandSender.sendMessage(e.getMessage());
+                        return true;
                     }
                 }
                 if (stat == null) {
