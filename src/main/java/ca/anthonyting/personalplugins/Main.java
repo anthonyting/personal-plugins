@@ -5,10 +5,12 @@ import ca.anthonyting.personalplugins.commands.GetStat;
 import ca.anthonyting.personalplugins.commands.PlayTime;
 import ca.anthonyting.personalplugins.listeners.*;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.awt.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -28,17 +30,21 @@ public class Main extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new PlayerHeadListener(), this);
         }
 
-        if (getConfig().getBoolean("disable-console-rename")) {
-            getLogger().info("Console Rename disabled.");
-        } else {
-            serverListListener = new ServerListListener();
-            getServer().getPluginManager().registerEvents(serverListListener, this);
+        if (!GraphicsEnvironment.isHeadless()) {
+            if (getConfig().getBoolean("disable-console-rename")) {
+                getLogger().info("Console Rename disabled.");
+            } else {
+                serverListListener = new ServerListListener();
+                getServer().getPluginManager().registerEvents(serverListListener, this);
+            }
         }
 
-        if (getConfig().getBoolean("allow-donkey-dupe")) {
-            getLogger().info("Donkey Dupe allowed.");
-        } else {
-            getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+        if (Bukkit.getVersion().contains("1.15")) {
+            if (getConfig().getBoolean("allow-donkey-dupe")) {
+                getLogger().info("Donkey Dupe allowed.");
+            } else {
+                getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+            }
         }
 
         if (getConfig().getBoolean("allow-many-spawner-mobs")) {
