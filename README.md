@@ -16,7 +16,7 @@ The project uses Maven and the build command is `mvn clean package`.
 
 ## Notes
 
-1) This plugin is used with Spigot API version 1.16 and Java 11. There is no guarantee that it will work in other versions.
+1) This plugin is used with Spigot API version 1.18.1 and Java 17. There is no guarantee that it will work in other versions.
 
 2) Renaming the console windows was built for a Windows GUI running the server, and will not work anywhere else
 
