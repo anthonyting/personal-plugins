@@ -6,6 +6,7 @@ import ca.anthonyting.personalplugins.commands.PlayTime;
 import ca.anthonyting.personalplugins.listeners.*;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -62,16 +63,20 @@ public class Main extends JavaPlugin {
         } else {
             getServer().getPluginManager().registerEvents(new PlayerCountListener(), this);
             Path backupPath = Paths.get(backupDirectoryName);
-            backupMaker = new TempBackup(backupPath, delay);
-            new BukkitRunnable() {
+            var task = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (!backupMaker.havePlayersBeenOnline()) {
-                        return;
+                    synchronized (this) {
+                        if (!backupMaker.havePlayersBeenOnline()) {
+                            return;
+                        }
+                        Main.getPlugin().getServer().savePlayers();
+                        Main.getPlugin().getServer().getWorlds().forEach(World::save);
+                        this.notifyAll();
                     }
-                    Main.getPlugin().getServer().dispatchCommand(Main.getPlugin().getServer().getConsoleSender(), "save-all");
                 }
             }.runTaskTimer(this, delay*20, delay*20);
+            backupMaker = new TempBackup(backupPath, delay, task);
             backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 

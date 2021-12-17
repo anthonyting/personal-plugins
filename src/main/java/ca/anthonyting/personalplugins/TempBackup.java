@@ -2,8 +2,10 @@ package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.util.DirectorySizer;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.*;
 import java.nio.file.*;
@@ -16,22 +18,22 @@ import java.util.zip.ZipOutputStream;
 public class TempBackup extends BukkitRunnable {
 
     private LinkedList<Path> directories = null;
-    private Path backupPath;
+    private final Path backupPath;
     private final Plugin main;
-    private long delay;
+    private final long delay;
     private boolean havePlayersBeenOnline;
-    private boolean isPlayerCountZero;
+    private final BukkitTask task;
 
     /**
      * @param backupPath a directory to put the directories after a copy
      * @param delay the amount of time in between each backup
      */
-    public TempBackup(Path backupPath, long delay) {
+    public TempBackup(Path backupPath, long delay, BukkitTask task) {
         this.backupPath = backupPath;
         this.delay = delay;
         this.main = Main.getPlugin();
         this.havePlayersBeenOnline = false;
-        this.isPlayerCountZero = true;
+        this.task = task;
     }
 
     /**
@@ -39,18 +41,13 @@ public class TempBackup extends BukkitRunnable {
      * @throws IOException when creating backupDirectory fails or copying to directories fails
      */
     public void runBackup() throws IOException {
-        if (!havePlayersBeenOnline) {
-            main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
-            return;
-        } else if (isPlayerCountZero) {
-            havePlayersBeenOnline = false;
-        }
         main.getLogger().info("Backing up files...");
         try {
             Files.createDirectory(backupPath);
         } catch (FileAlreadyExistsException e) {
             // then just continue
         }
+        directories = getWorldDirectories();
         pack();
         main.getLogger().info("Backup success!");
     }
@@ -72,7 +69,7 @@ public class TempBackup extends BukkitRunnable {
                 String currentZipDirectory = directory.getFileName().toString();
                 paths.filter(path -> !Files.isDirectory(path) && !path.getFileName().toString().equals("session.lock"))
                 .forEach(path -> {
-                    ZipEntry zipEntry = new ZipEntry(currentZipDirectory + File.separator + directory.relativize(path).toString());
+                    ZipEntry zipEntry = new ZipEntry(currentZipDirectory + File.separator + directory.relativize(path));
                     try {
                         zs.putNextEntry(zipEntry);
                         Files.copy(path, zs);
@@ -156,11 +153,25 @@ public class TempBackup extends BukkitRunnable {
     @Override
     public void run() {
         try {
-            directories = getWorldDirectories();
-            runBackup();
+            var playersOnline = main.getServer().getOnlinePlayers().size();
+            if (playersOnline == 0) {
+                havePlayersBeenOnline = false;
+            }
+            if (!havePlayersBeenOnline && playersOnline == 0) {
+                main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
+                return;
+            }
+            synchronized (task) {
+                var timeout = 10000;
+                task.wait(timeout);
+                runBackup();
+            }
         } catch (IOException e) {
             e.printStackTrace();
             main.getLogger().warning("Error backing up files");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            main.getLogger().warning("Save backup task wait interrupted");
         }
     }
 
@@ -168,15 +179,7 @@ public class TempBackup extends BukkitRunnable {
         this.havePlayersBeenOnline = havePlayersBeenOnline;
     }
 
-    public void setPlayerCountZero(boolean playerCountZero) {
-        this.isPlayerCountZero = playerCountZero;
-    }
-
     public boolean havePlayersBeenOnline() {
         return havePlayersBeenOnline;
-    }
-
-    public boolean isPlayerCountZero() {
-        return isPlayerCountZero;
     }
 }
