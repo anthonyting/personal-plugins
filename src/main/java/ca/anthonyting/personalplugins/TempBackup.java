@@ -153,11 +153,7 @@ public class TempBackup extends BukkitRunnable {
     @Override
     public void run() {
         try {
-            var playersOnline = main.getServer().getOnlinePlayers().size();
-            if (playersOnline == 0) {
-                havePlayersBeenOnline = false;
-            }
-            if (!havePlayersBeenOnline && playersOnline == 0) {
+            if (!havePlayersBeenOnline()) {
                 main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
                 return;
             }
@@ -180,6 +176,11 @@ public class TempBackup extends BukkitRunnable {
     }
 
     public boolean havePlayersBeenOnline() {
+        if (havePlayersBeenOnline) {
+            return true;
+        }
+
+        havePlayersBeenOnline = main.getServer().getOnlinePlayers().size() == 0;
         return havePlayersBeenOnline;
     }
 }

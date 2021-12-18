@@ -2,6 +2,7 @@ package ca.anthonyting.personalplugins.commands;
 
 import ca.anthonyting.personalplugins.Main;
 import org.bukkit.ChatColor;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -27,7 +28,8 @@ public class Backup implements CommandExecutor {
             return true;
         }
 
-        main.getServer().dispatchCommand(main.getServer().getConsoleSender(), "save-all");
+        main.getServer().savePlayers();
+        main.getServer().getWorlds().forEach(World::save);
         new BukkitRunnable() {
             @Override
             public void run() {
