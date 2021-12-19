@@ -66,7 +66,7 @@ public class GetStat implements CommandExecutor {
                 } else {
                     String reply = strings[0] + ": " + stat;
                     if (strings.length > 1) {
-                        commandSender.sendMessage(strings[1] + " - " + reply);
+                        commandSender.sendMessage(strings[1] + ": " + reply);
                     } else {
                         commandSender.sendMessage(reply);
                     }

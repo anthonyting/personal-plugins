@@ -1,7 +1,7 @@
 main: ca.anthonyting.personalplugins.Main
 name: Custom
 version: "0.1"
-api-version: "1.15"
+api-version: "1.18"
 commands:
   forcebackup:
     description: Copies and overwrites files at directory specified in config
