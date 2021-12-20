@@ -12,3 +12,5 @@ dependency-reduced-pom.xml
 target/
 jars/
 out/
+# emojichat.jar must be here
+build-resources/

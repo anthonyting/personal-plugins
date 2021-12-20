@@ -2,6 +2,8 @@ main: ca.anthonyting.personalplugins.Main
 name: Custom
 version: "0.1"
 api-version: "1.18"
+softdepend:
+  - EmojiChat
 commands:
   forcebackup:
     description: Copies and overwrites files at directory specified in config
@@ -14,6 +16,10 @@ commands:
     description: Get a stat of yourself or another player
     permission: personalplugins.getstat
     usage: "Usage: /<command> [stat] [player]"
+  emoji:
+    description: Send a message with an emoji
+    permission: personalplugins.emoji
+    usage: "Usage: /<command> text [emoji] text"
 permissions:
   personalplugins.forcebackup:
     description: Allows forcebackup
@@ -23,6 +29,9 @@ permissions:
     default: true
   personalplugins.getstat:
     description: Allows getstat
+    default: true
+  personalplugins.emoji:
+    description: Allows emoji messages
     default: true
   personalplugins.*:
     description: Wildcard permission

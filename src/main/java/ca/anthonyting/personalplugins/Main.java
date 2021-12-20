@@ -1,10 +1,13 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.Backup;
+import ca.anthonyting.personalplugins.commands.EmojiMessage;
 import ca.anthonyting.personalplugins.commands.GetStat;
 import ca.anthonyting.personalplugins.commands.PlayTime;
 import ca.anthonyting.personalplugins.listeners.*;
+import ca.anthonyting.personalplugins.tabcomplete.EmojiMessageComplete;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
+import io.github.radbuilder.emojichat.EmojiChat;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
@@ -14,15 +17,18 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.awt.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 
 public class Main extends JavaPlugin {
     
     private static Main instance;
-    public static JavaPlugin getPlugin() {
+    public static Main getInstance() { return instance; }
+    public static Main getPlugin() {
         return instance;
     }
     private ServerListListener serverListListener = null;
     private static TempBackup backupMaker;
+    private LinkedHashMap<String, Character> emojis;
 
     private void registerListeners() {
         if (getConfig().getBoolean("disable-player-head-drop")) {
@@ -107,6 +113,15 @@ public class Main extends JavaPlugin {
             getStat.setExecutor(new GetStat());
             getStat.setTabCompleter(new GetStatComplete());
         }
+
+        var emojichat = (EmojiChat) Bukkit.getPluginManager().getPlugin("EmojiChat");
+        PluginCommand emoji = getCommand("emoji");
+        if (emojichat != null && emoji != null) {
+            var emojis = emojichat.getEmojiHandler().getEmojis();
+            emoji.setExecutor(new EmojiMessage());
+            emoji.setTabCompleter(new EmojiMessageComplete());
+            this.emojis = emojis;
+        }
     }
 
     @Override
@@ -125,5 +140,9 @@ public class Main extends JavaPlugin {
 
     public static TempBackup getBackupMaker() {
         return backupMaker;
+    }
+
+    public LinkedHashMap<String, Character> getEmojis() {
+        return this.emojis;
     }
 }
