@@ -1,6 +1,6 @@
 package ca.anthonyting.personalplugins.tabcomplete;
 
-import ca.anthonyting.personalplugins.Main;
+import ca.anthonyting.personalplugins.MainPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -18,7 +18,7 @@ public class EmojiMessageComplete implements TabCompleter {
     public List<String> onTabComplete(CommandSender commandSender, Command command, String s, String[] strings) {
 
         if (emojis == null) {
-            emojis = Main.getInstance().getEmojis();
+            emojis = MainPlugin.getInstance().getEmojis();
         }
 
         if (commandSender instanceof Player && command.getName().equals("emoji") && commandSender.hasPermission("personalplugins.emoji")) {

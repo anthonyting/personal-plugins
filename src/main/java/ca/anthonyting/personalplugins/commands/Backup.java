@@ -1,18 +1,17 @@
 package ca.anthonyting.personalplugins.commands;
 
-import ca.anthonyting.personalplugins.Main;
+import ca.anthonyting.personalplugins.MainPlugin;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public class Backup implements CommandExecutor {
 
-    private final Plugin main = Main.getPlugin();
+    private final MainPlugin main = MainPlugin.getInstance();
 
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
@@ -34,12 +33,12 @@ public class Backup implements CommandExecutor {
             @Override
             public void run() {
                 // force a backup, but do not interfere with scheduled backups
-                if (Main.getBackupMaker().havePlayersBeenOnline()) {
-                    Main.getBackupMaker().run();
+                if (main.getBackupMaker().havePlayersBeenOnline()) {
+                    main.getBackupMaker().run();
                 } else {
-                    Main.getBackupMaker().setHavePlayersBeenOnline(true);
-                    Main.getBackupMaker().run();
-                    Main.getBackupMaker().setHavePlayersBeenOnline(false);
+                    main.getBackupMaker().setHavePlayersBeenOnline(true);
+                    main.getBackupMaker().run();
+                    main.getBackupMaker().setHavePlayersBeenOnline(false);
                 }
             }
         }.runTaskAsynchronously(main);

@@ -1,4 +1,4 @@
-main: ca.anthonyting.personalplugins.Main
+main: ca.anthonyting.personalplugins.MainPlugin
 name: Custom
 version: "0.1"
 api-version: "1.18"

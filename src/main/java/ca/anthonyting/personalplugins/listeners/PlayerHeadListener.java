@@ -1,6 +1,6 @@
 package ca.anthonyting.personalplugins.listeners;
 
-import ca.anthonyting.personalplugins.Main;
+import ca.anthonyting.personalplugins.MainPlugin;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -17,12 +17,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public class PlayerHeadListener implements Listener {
 
     private Creeper previousCreeper = null;
-    private final JavaPlugin plugin = Main.getPlugin();
+    private final MainPlugin plugin = MainPlugin.getInstance();
 
     private static ItemStack makeHead(Player player) {
         // returns null if setting the player of the skull fails
@@ -67,7 +66,7 @@ public class PlayerHeadListener implements Listener {
                 previousCreeper = creeperThatKilledPlayer;
                 ItemStack playerHead = makeHead(player);
                 if (playerHead != null) {
-                    plugin.getLogger().info("Player head generated at " + player.getLocation().toString() + " for " + player.getName());
+                    plugin.getLogger().info("Player head generated at " + player.getLocation() + " for " + player.getName());
                     currentWorld.dropItemNaturally(player.getLocation(), playerHead);
                 }
             }

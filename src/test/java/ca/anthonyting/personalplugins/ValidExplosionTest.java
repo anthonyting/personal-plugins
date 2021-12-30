@@ -24,7 +24,7 @@ import java.util.UUID;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Bukkit.class, Main.class, PlayerDeathEvent.class, EntityDamageByEntityEvent.class})
+@PrepareForTest({Bukkit.class, MainPlugin.class, PlayerDeathEvent.class, EntityDamageByEntityEvent.class})
 public class ValidExplosionTest
 {
 
@@ -32,7 +32,7 @@ public class ValidExplosionTest
     public static void setUp()
     {
         PowerMockito.mockStatic(Bukkit.class);
-        PowerMockito.mockStatic(Main.class, invocationOnMock -> null);
+        PowerMockito.mockStatic(MainPlugin.class, invocationOnMock -> null);
 
         ItemFactory itemFactory = Mockito.mock(ItemFactory.class);
         Mockito.when(Bukkit.getItemFactory()).thenReturn(itemFactory);

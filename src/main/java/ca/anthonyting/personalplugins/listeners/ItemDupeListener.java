@@ -1,6 +1,6 @@
 package ca.anthonyting.personalplugins.listeners;
 
-import ca.anthonyting.personalplugins.Main;
+import ca.anthonyting.personalplugins.MainPlugin;
 import org.bukkit.entity.ChestedHorse;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -19,7 +19,7 @@ public class ItemDupeListener implements Listener {
         Entity vehicle = p.getVehicle();
         if (p.isInsideVehicle() && (vehicle instanceof ChestedHorse) && ((ChestedHorse) vehicle).isCarryingChest()) {
             vehicle.eject();
-            Main.getPlugin().getLogger().info(p.getName() + " disconnected while on a " + vehicle.getType().toString().toLowerCase(Locale.ENGLISH));
+            MainPlugin.getInstance().getLogger().info(p.getName() + " disconnected while on a " + vehicle.getType().toString().toLowerCase(Locale.ENGLISH));
         }
     }
 }

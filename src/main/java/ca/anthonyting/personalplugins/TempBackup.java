@@ -2,7 +2,6 @@ package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.util.DirectorySizer;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -19,7 +18,7 @@ public class TempBackup extends BukkitRunnable {
 
     private LinkedList<Path> directories = null;
     private final Path backupPath;
-    private final Plugin main;
+    private final Plugin main = MainPlugin.getInstance();
     private final long delay;
     private boolean havePlayersBeenOnline;
     private final BukkitTask task;
@@ -31,7 +30,6 @@ public class TempBackup extends BukkitRunnable {
     public TempBackup(Path backupPath, long delay, BukkitTask task) {
         this.backupPath = backupPath;
         this.delay = delay;
-        this.main = Main.getPlugin();
         this.havePlayersBeenOnline = false;
         this.task = task;
     }
