@@ -8,6 +8,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -76,7 +77,7 @@ public class PlayTime implements CommandExecutor {
     }
 
     @Override
-    public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
+    public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, String[] strings) {
 
         boolean paginated = strings.length > 0 && isInteger(strings[0]);
 
@@ -167,7 +168,7 @@ public class PlayTime implements CommandExecutor {
                     // add new line if there is a next element and the line is not the last one
                     playersShown.append(getFormattedMessage(currentEntry.getValue(), playerRank, true));
                     lineCount++;
-                    playerFound = true;
+//                    playerFound = true;
                 }
                 playerRank++;
             }
