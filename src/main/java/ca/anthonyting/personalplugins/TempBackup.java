@@ -178,7 +178,7 @@ public class TempBackup extends BukkitRunnable {
             return true;
         }
 
-        havePlayersBeenOnline = main.getServer().getOnlinePlayers().size() == 0;
+        havePlayersBeenOnline = main.getServer().getOnlinePlayers().size() != 0;
         return havePlayersBeenOnline;
     }
 }
