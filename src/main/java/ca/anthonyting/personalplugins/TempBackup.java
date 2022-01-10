@@ -22,6 +22,8 @@ public class TempBackup extends BukkitRunnable {
     private final long delay;
     private boolean havePlayersBeenOnline;
     private final BukkitTask task;
+    private boolean isBackupRunning = false;
+    private boolean isReady = false;
 
     /**
      * @param backupPath a directory to put the directories after a copy
@@ -39,6 +41,11 @@ public class TempBackup extends BukkitRunnable {
      * @throws IOException when creating backupDirectory fails or copying to directories fails
      */
     public void runBackup() throws IOException {
+        if (isBackupRunning) {
+            main.getLogger().info("Backup already running. Skipping backup.");
+            return;
+        }
+        isBackupRunning = true;
         main.getLogger().info("Backing up files...");
         try {
             Files.createDirectory(backupPath);
@@ -48,6 +55,10 @@ public class TempBackup extends BukkitRunnable {
         directories = getWorldDirectories();
         pack();
         main.getLogger().info("Backup success!");
+        if (main.getServer().getOnlinePlayers().isEmpty()) {
+            havePlayersBeenOnline = false;
+        }
+        isBackupRunning = false;
     }
 
     // modified from https://stackoverflow.com/a/53275074/11972694
@@ -151,14 +162,17 @@ public class TempBackup extends BukkitRunnable {
     @Override
     public void run() {
         try {
-            if (!havePlayersBeenOnline()) {
-                main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
-                return;
-            }
             synchronized (task) {
-                var timeout = 10000;
-                task.wait(timeout);
+                if (havePlayersBeenOffline()) {
+                    main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
+                    return;
+                }
+                if (!isReady) {
+                    var timeout = 10000;
+                    task.wait(timeout);
+                }
                 runBackup();
+                isReady = false;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -173,12 +187,11 @@ public class TempBackup extends BukkitRunnable {
         this.havePlayersBeenOnline = havePlayersBeenOnline;
     }
 
-    public boolean havePlayersBeenOnline() {
-        if (havePlayersBeenOnline) {
-            return true;
-        }
+    public boolean havePlayersBeenOffline() {
+        return !havePlayersBeenOnline;
+    }
 
-        havePlayersBeenOnline = main.getServer().getOnlinePlayers().size() != 0;
-        return havePlayersBeenOnline;
+    public void setReady(boolean ready) {
+        isReady = ready;
     }
 }

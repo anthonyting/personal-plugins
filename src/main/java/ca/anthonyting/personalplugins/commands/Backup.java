@@ -10,6 +10,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+
 public class Backup implements CommandExecutor {
 
     private final MainPlugin main = MainPlugin.getInstance();
@@ -33,13 +35,12 @@ public class Backup implements CommandExecutor {
         new BukkitRunnable() {
             @Override
             public void run() {
-                // force a backup, but do not interfere with scheduled backups
-                if (main.getBackupMaker().havePlayersBeenOnline()) {
-                    main.getBackupMaker().run();
-                } else {
-                    main.getBackupMaker().setHavePlayersBeenOnline(true);
-                    main.getBackupMaker().run();
-                    main.getBackupMaker().setHavePlayersBeenOnline(false);
+                try {
+                    main.getBackupMaker().runBackup();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    main.getLogger().warning("Error backing up files");
+                    commandSender.sendMessage("Error forcing a backup");
                 }
             }
         }.runTaskAsynchronously(main);

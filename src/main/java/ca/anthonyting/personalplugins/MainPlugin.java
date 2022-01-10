@@ -72,11 +72,15 @@ public class MainPlugin extends JavaPlugin {
                 @Override
                 public void run() {
                     synchronized (this) {
-                        if (!backupMaker.havePlayersBeenOnline()) {
+                        if (backupMaker.havePlayersBeenOffline()) {
+                            backupMaker.setReady(true);
+                            this.notifyAll();
                             return;
                         }
+                        getLogger().info("Saving worlds and players...");
                         MainPlugin.getInstance().getServer().savePlayers();
                         MainPlugin.getInstance().getServer().getWorlds().forEach(World::save);
+                        backupMaker.setReady(true);
                         this.notifyAll();
                     }
                 }
