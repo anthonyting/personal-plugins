@@ -72,6 +72,10 @@ public class MainPlugin extends JavaPlugin {
                 @Override
                 public void run() {
                     synchronized (this) {
+                        String backupDirectoryName = getConfig().getString("temp-backup-directory");
+                        if (backupDirectoryName != null) {
+                            backupMaker.setBackupPath(Paths.get(backupDirectoryName));
+                        }
                         if (backupMaker.havePlayersBeenOffline()) {
                             backupMaker.setReady(true);
                             this.notifyAll();

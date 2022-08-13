@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
 public class TempBackup extends BukkitRunnable {
 
     private LinkedList<Path> directories = null;
-    private final Path backupPath;
+    private Path backupPath;
     private final Plugin main = MainPlugin.getInstance();
     private final long delay;
     private boolean havePlayersBeenOnline;
@@ -36,11 +36,15 @@ public class TempBackup extends BukkitRunnable {
         this.task = task;
     }
 
+    public void setBackupPath(Path backupPath) {
+        this.backupPath = backupPath;
+    }
+
     /**
      * Copies paths in directories to backupDirectory while overwriting anything there.
      * @throws IOException when creating backupDirectory fails or copying to directories fails
      */
-    public void runBackup() throws IOException {
+    public void runBackup() throws IOException{
         if (isBackupRunning) {
             main.getLogger().info("Backup already running. Skipping backup.");
             return;
@@ -48,12 +52,17 @@ public class TempBackup extends BukkitRunnable {
         isBackupRunning = true;
         main.getLogger().info("Backing up files...");
         try {
-            Files.createDirectory(backupPath);
-        } catch (FileAlreadyExistsException e) {
-            // then just continue
+            try {
+                Files.createDirectory(backupPath);
+            } catch (FileAlreadyExistsException e) {
+                // then just continue
+            }
+            directories = getWorldDirectories();
+            pack();
+        } catch (IOException e) {
+            isBackupRunning = false;
+            throw e;
         }
-        directories = getWorldDirectories();
-        pack();
         main.getLogger().info("Backup success!");
         if (main.getServer().getOnlinePlayers().isEmpty()) {
             havePlayersBeenOnline = false;
