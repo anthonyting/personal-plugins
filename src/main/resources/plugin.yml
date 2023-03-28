@@ -1,7 +1,7 @@
 main: ca.anthonyting.personalplugins.MainPlugin
 name: Custom
 version: "0.1"
-api-version: "1.18"
+api-version: "1.19"
 softdepend:
   - EmojiChat
 commands:
@@ -20,6 +20,10 @@ commands:
     description: Send a message with an emoji
     permission: personalplugins.emoji
     usage: "Usage: /<command> text [emoji] text"
+  stopserver:
+    description: Stop server with timer
+    permission: personalplugins.stopserver
+    usage: "Usage: /<command> [cancel | seconds]"
 permissions:
   personalplugins.forcebackup:
     description: Allows forcebackup
@@ -38,3 +42,6 @@ permissions:
     default: op
     children:
       personalplugins.forcebackup: true
+  personalplugins.stopserver:
+    description: Allows stopping server with timer
+    default: op

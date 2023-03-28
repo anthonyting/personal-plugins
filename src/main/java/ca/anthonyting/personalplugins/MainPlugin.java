@@ -1,9 +1,6 @@
 package ca.anthonyting.personalplugins;
 
-import ca.anthonyting.personalplugins.commands.Backup;
-import ca.anthonyting.personalplugins.commands.EmojiMessage;
-import ca.anthonyting.personalplugins.commands.GetStat;
-import ca.anthonyting.personalplugins.commands.PlayTime;
+import ca.anthonyting.personalplugins.commands.*;
 import ca.anthonyting.personalplugins.listeners.*;
 import ca.anthonyting.personalplugins.tabcomplete.EmojiMessageComplete;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
@@ -129,20 +126,24 @@ public class MainPlugin extends JavaPlugin {
             emoji.setTabCompleter(new EmojiMessageComplete());
             this.emojis = emojis;
         }
+
+        var stopServer = getCommand("stopserver");
+        if (stopServer != null) {
+            stopServer.setExecutor(new StopServer());
+        }
     }
 
     @Override
     public void onDisable() {
-        if (serverListListener == null) {
-            return;
+        if (serverListListener != null) {
+            if (serverListListener.setTitle(serverListListener.getOrigTitle())) {
+                getLogger().info("Resetting title to original title...");
+            } else {
+                getLogger().warning("Failed to reset title to original title!");
+            }
         }
-        if (serverListListener.setTitle(serverListListener.getOrigTitle())) {
-            getLogger().info("Resetting title to original title...");
-        } else {
-            getLogger().warning("Failed to reset title to original title!");
-        }
-        instance = null;
         getServer().getScheduler().cancelTasks(this);
+        instance = null;
     }
 
     public TempBackup getBackupMaker() {
