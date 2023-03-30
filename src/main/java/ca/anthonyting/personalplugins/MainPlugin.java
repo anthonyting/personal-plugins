@@ -55,6 +55,12 @@ public class MainPlugin extends JavaPlugin {
         } else {
             getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
         }
+
+        if (getConfig().getBoolean("cow-sacrifice")) {
+            getServer().getPluginManager().registerEvents(new CowSacrificeListener(), this);
+        } else {
+            getLogger().info("Cow Sacrifice disabled.");
+        }
     }
 
     private void initializeBackups() {

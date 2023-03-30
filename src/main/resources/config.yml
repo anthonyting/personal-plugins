@@ -17,3 +17,6 @@ temp-backup-directory: ""
 
 # frequency of backups in seconds
 backup-freq: 3600
+
+cow-sacrifice: true
+
