@@ -15,6 +15,6 @@ public class CreateSave implements AutoCloseable {
     @Override
     public void close() {
         var server = main.getServer();
-        server.getWorlds().forEach(f -> f.setAutoSave(false));
+        server.getWorlds().forEach(f -> f.setAutoSave(true));
     }
 }
