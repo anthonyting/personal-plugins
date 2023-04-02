@@ -28,18 +28,15 @@ public class InspectionListener implements Listener {
     public void onInspection(EntityDamageByEntityEvent e) {
         var damager = e.getDamager();
         if (damager.getType() != EntityType.PLAYER) {
-            plugin.getLogger().info("Damager is not a player");
             return;
         }
 
         var damagee = e.getEntity();
         if (damagee.getType() != EntityType.PLAYER) {
-            plugin.getLogger().info("Damagee is not a player");
             return;
         }
 
         if (e.getCause() != EntityDamageByEntityEvent.DamageCause.ENTITY_ATTACK) {
-            plugin.getLogger().info("Damage cause is not ENTITY_ATTACK");
             return;
         }
 
@@ -48,7 +45,6 @@ public class InspectionListener implements Listener {
 
         // make sure inspector has permission
         if (!inspector.hasPermission("personalplugins.inspect")) {
-            plugin.getLogger().info("Inspector does not have permission");
             return;
         }
 
@@ -57,14 +53,12 @@ public class InspectionListener implements Listener {
         var inspectorLocation = inspector.getLocation();
         var distance = inspectedPlayerLocation.distance(inspectorLocation);
         if (distance > 10 || !inspectedPlayer.isSneaking() || !inspector.isSneaking()) {
-            plugin.getLogger().info("Inspected player is not within 10 blocks of inspector");
             return;
         }
 
         // make sure damager is holding a stick
         var itemInHand = inspector.getInventory().getItemInMainHand();
         if (itemInHand.getType() != Material.STICK) {
-            plugin.getLogger().info("Inspector is not holding a stick");
             return;
         }
 
