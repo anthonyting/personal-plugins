@@ -27,10 +27,12 @@ public class MainPlugin extends JavaPlugin {
     private LinkedHashMap<String, Character> emojis;
 
     private void registerListeners() {
+        var pluginManager = getServer().getPluginManager();
+
         if (getConfig().getBoolean("disable-player-head-drop")) {
             getLogger().info("Player Head Drop disabled.");
         } else {
-            getServer().getPluginManager().registerEvents(new PlayerHeadListener(), this);
+            pluginManager.registerEvents(new PlayerHeadListener(), this);
         }
 
         if (!GraphicsEnvironment.isHeadless()) {
@@ -38,7 +40,7 @@ public class MainPlugin extends JavaPlugin {
                 getLogger().info("Console Rename disabled.");
             } else {
                 serverListListener = new ServerListListener();
-                getServer().getPluginManager().registerEvents(serverListListener, this);
+                pluginManager.registerEvents(serverListListener, this);
             }
         }
 
@@ -46,21 +48,23 @@ public class MainPlugin extends JavaPlugin {
             if (getConfig().getBoolean("allow-donkey-dupe")) {
                 getLogger().info("Donkey Dupe allowed.");
             } else {
-                getServer().getPluginManager().registerEvents(new ItemDupeListener(), this);
+                pluginManager.registerEvents(new ItemDupeListener(), this);
             }
         }
 
         if (getConfig().getBoolean("allow-many-spawner-mobs")) {
             getLogger().info("Allow spawners to generate many mobs in a region.");
         } else {
-            getServer().getPluginManager().registerEvents(new MobSpawnerListener(), this);
+            pluginManager.registerEvents(new MobSpawnerListener(), this);
         }
 
         if (getConfig().getBoolean("cow-sacrifice")) {
-            getServer().getPluginManager().registerEvents(new CowSacrificeListener(), this);
+            pluginManager.registerEvents(new CowSacrificeListener(), this);
         } else {
             getLogger().info("Cow Sacrifice disabled.");
         }
+
+        pluginManager.registerEvents(new InspectionListener(), this);
     }
 
     private void initializeBackups() {

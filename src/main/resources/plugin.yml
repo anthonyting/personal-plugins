@@ -45,3 +45,6 @@ permissions:
   personalplugins.stopserver:
     description: Allows stopping server with timer
     default: op
+  personalplugins.inspect:
+    description: Allows inspection of players
+    default: op
