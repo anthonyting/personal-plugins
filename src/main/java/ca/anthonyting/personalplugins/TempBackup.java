@@ -1,10 +1,10 @@
 package ca.anthonyting.personalplugins;
 
+import ca.anthonyting.personalplugins.util.CreateSave;
 import ca.anthonyting.personalplugins.util.DirectorySizer;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.*;
 import java.nio.file.*;
@@ -17,61 +17,74 @@ import java.util.zip.ZipOutputStream;
 public class TempBackup extends BukkitRunnable {
 
     private LinkedList<Path> directories = null;
-    private Path backupPath;
     private final Plugin main = MainPlugin.getInstance();
-    private final long delay;
     private boolean havePlayersBeenOnline;
-    private final BukkitTask task;
     private boolean isBackupRunning = false;
-    private boolean isReady = false;
 
-    /**
-     * @param backupPath a directory to put the directories after a copy
-     * @param delay the amount of time in between each backup
-     */
-    public TempBackup(Path backupPath, long delay, BukkitTask task) {
-        this.backupPath = backupPath;
-        this.delay = delay;
+    public TempBackup() {
         this.havePlayersBeenOnline = false;
-        this.task = task;
     }
 
-    public void setBackupPath(Path backupPath) {
-        this.backupPath = backupPath;
+    @Override
+    public void run() {
+        if (isBackupRunning) {
+            main.getLogger().info("Backup already running. Skipping backup.");
+            return;
+        }
+
+        isBackupRunning = true;
+        try {
+            this.runBackup();
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+            main.getLogger().warning("Backup failed.");
+        } finally {
+            isBackupRunning = false;
+        }
     }
 
     /**
      * Copies paths in directories to backupDirectory while overwriting anything there.
      * @throws IOException when creating backupDirectory fails or copying to directories fails
+     * @throws InterruptedException when the thread is interrupted
      */
-    public void runBackup() throws IOException{
-        if (isBackupRunning) {
-            main.getLogger().info("Backup already running. Skipping backup.");
+    private void runBackup() throws IOException, InterruptedException {
+        if (havePlayersBeenOffline()) {
+            main.getLogger().info("No players online since last backup. Backup cancelled.");
             return;
         }
-        isBackupRunning = true;
+
+        String backupDirectoryName = main.getConfig().getString("temp-backup-directory");
+
+        if (backupDirectoryName == null) {
+            main.getLogger().warning("Backup directory not set in config. Skipping backup.");
+            return;
+        }
+
+        var backupPath = Paths.get(backupDirectoryName);
+
         main.getLogger().info("Backing up files...");
         try {
-            try {
-                Files.createDirectory(backupPath);
-            } catch (FileAlreadyExistsException e) {
-                // then just continue
-            }
-            directories = getWorldDirectories();
-            pack();
-        } catch (IOException e) {
-            isBackupRunning = false;
-            throw e;
+            Files.createDirectory(backupPath);
+        } catch (FileAlreadyExistsException e) {
+            // then just continue
         }
+        directories = getWorldDirectories();
+
+        synchronized (this) {
+            try (var ignored = new CreateSave(this)) {
+                pack(backupPath);
+            }
+        }
+
         main.getLogger().info("Backup success!");
         if (main.getServer().getOnlinePlayers().isEmpty()) {
             havePlayersBeenOnline = false;
         }
-        isBackupRunning = false;
     }
 
     // modified from https://stackoverflow.com/a/53275074/11972694
-    private void pack() throws IOException {
+    private void pack(Path backupPath) throws IOException {
         Path currBackup = Paths.get(backupPath.toString(), "backup.zip");
 
         if (Files.exists(currBackup)) {
@@ -168,39 +181,11 @@ public class TempBackup extends BukkitRunnable {
         return worldDirectoriesSorted;
     }
 
-    @Override
-    public void run() {
-        try {
-            synchronized (task) {
-                if (havePlayersBeenOffline()) {
-                    main.getLogger().info("No players online in " + delay + " seconds. Backup cancelled.");
-                    return;
-                }
-                if (!isReady) {
-                    var timeout = 10000;
-                    task.wait(timeout);
-                }
-                runBackup();
-                isReady = false;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            main.getLogger().warning("Error backing up files");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            main.getLogger().warning("Save backup task wait interrupted");
-        }
-    }
-
     public void setHavePlayersBeenOnline(boolean havePlayersBeenOnline) {
         this.havePlayersBeenOnline = havePlayersBeenOnline;
     }
 
     public boolean havePlayersBeenOffline() {
         return !havePlayersBeenOnline;
-    }
-
-    public void setReady(boolean ready) {
-        isReady = ready;
     }
 }

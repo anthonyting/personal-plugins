@@ -70,29 +70,7 @@ public class MainPlugin extends JavaPlugin {
             getLogger().info("Backups disabled.");
         } else {
             getServer().getPluginManager().registerEvents(new PlayerCountListener(), this);
-            Path backupPath = Paths.get(backupDirectoryName);
-            var task = new BukkitRunnable() {
-                @Override
-                public void run() {
-                    synchronized (this) {
-                        String backupDirectoryName = getConfig().getString("temp-backup-directory");
-                        if (backupDirectoryName != null) {
-                            backupMaker.setBackupPath(Paths.get(backupDirectoryName));
-                        }
-                        if (backupMaker.havePlayersBeenOffline()) {
-                            backupMaker.setReady(true);
-                            this.notifyAll();
-                            return;
-                        }
-                        getLogger().info("Saving worlds and players...");
-                        MainPlugin.getInstance().getServer().savePlayers();
-                        MainPlugin.getInstance().getServer().getWorlds().forEach(World::save);
-                        backupMaker.setReady(true);
-                        this.notifyAll();
-                    }
-                }
-            }.runTaskTimer(this, delay*20, delay*20);
-            backupMaker = new TempBackup(backupPath, delay, task);
+            backupMaker = new TempBackup();
             backupMaker.runTaskTimerAsynchronously(this, delay*20, delay*20);
         }
 

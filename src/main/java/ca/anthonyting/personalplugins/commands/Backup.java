@@ -30,20 +30,13 @@ public class Backup implements CommandExecutor {
             return true;
         }
 
-        main.getServer().savePlayers();
-        main.getServer().getWorlds().forEach(World::save);
         new BukkitRunnable() {
             @Override
             public void run() {
-                try {
-                    main.getBackupMaker().runBackup();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    main.getLogger().warning("Error backing up files");
-                    commandSender.sendMessage("Error forcing a backup");
-                }
+                main.getBackupMaker().run();
             }
         }.runTaskAsynchronously(main);
+
         return true;
     }
 }
