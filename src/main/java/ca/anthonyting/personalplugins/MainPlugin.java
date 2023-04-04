@@ -6,14 +6,11 @@ import ca.anthonyting.personalplugins.tabcomplete.EmojiMessageComplete;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
 import io.github.radbuilder.emojichat.EmojiChat;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.awt.*;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
 public class MainPlugin extends JavaPlugin {
@@ -25,6 +22,8 @@ public class MainPlugin extends JavaPlugin {
     private ServerListListener serverListListener = null;
     private TempBackup backupMaker;
     private LinkedHashMap<String, Character> emojis;
+
+    private final ArrayList<CancellableListener> cancellableListeners = new ArrayList<>();
 
     private void registerListeners() {
         var pluginManager = getServer().getPluginManager();
@@ -59,7 +58,11 @@ public class MainPlugin extends JavaPlugin {
         }
 
         if (getConfig().getBoolean("cow-sacrifice")) {
-            pluginManager.registerEvents(new CowSacrificeListener(), this);
+            var cowSacrificeListener = new CowSacrificeListener();
+            pluginManager.registerEvents(cowSacrificeListener, this);
+            var hornListener = new CowHornListener(cowSacrificeListener);
+            pluginManager.registerEvents(hornListener, this);
+            cancellableListeners.add(cowSacrificeListener);
         } else {
             getLogger().info("Cow Sacrifice disabled.");
         }
@@ -130,6 +133,7 @@ public class MainPlugin extends JavaPlugin {
                 getLogger().warning("Failed to reset title to original title!");
             }
         }
+        cancellableListeners.forEach(CancellableListener::cleanup);
         getServer().getScheduler().cancelTasks(this);
         instance = null;
     }

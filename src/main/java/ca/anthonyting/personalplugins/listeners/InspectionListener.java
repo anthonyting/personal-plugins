@@ -3,6 +3,7 @@ package ca.anthonyting.personalplugins.listeners;
 import ca.anthonyting.personalplugins.MainPlugin;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -79,7 +80,7 @@ public class InspectionListener implements Listener {
             // notify inspector and inspected player that inspection has started
             inspector.sendMessage(ChatColor.GREEN + "Started inspecting " + inspectedPlayer.getName() + "...");
             inspectedPlayer.sendMessage(ChatColor.GREEN + inspector.getName() + " is inspecting you...");
-            var resetDelay = 20 * 10;
+            var resetDelay = 20 * 60; // 1 minute in ticks
             var task = new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -102,6 +103,8 @@ public class InspectionListener implements Listener {
             // notify inspector how many more hits are required
             inspector.sendMessage(ChatColor.GREEN + "One more round to inspect " + inspectedPlayer.getName() + "...");
         }
+        // display stinky particles
+        inspectedPlayer.getWorld().spawnParticle(Particle.SMOKE_LARGE, inspectedPlayer.getLocation(), 10);
         hitCountByPlayer.put(inspector, ++hitCount);
         if (hitCount < 3) {
             return;
@@ -231,6 +234,15 @@ public class InspectionListener implements Listener {
                         .append("\n")
         );
 
+        // check for gunpowder
+        inventory.all(Material.GUNPOWDER).forEach((key, value) ->
+                fullMessage
+                        .append("- ")
+                        .append(value.getAmount())
+                        .append(" Gunpowder")
+                        .append("\n")
+        );
+
         boolean hasSuspiciousItems = fullMessage.length() > messageLength;
         if (!hasSuspiciousItems) {
             fullMessage.append("None");
@@ -248,6 +260,7 @@ public class InspectionListener implements Listener {
         // - Material.PUFFERFISH
         // - Material.SUSPICIOUS_STEW
         // - Material.FIREWORK_ROCKET
+        // - Material.GUNPOWDER
 
         // notify inspector of suspicious items
         inspector.sendMessage(fullMessage.toString());
