@@ -88,7 +88,7 @@ public class CowSacrificeListener extends CancellableListener {
     public void finalizeRitual(Player player) {
         final var task = pendingRituals.get(player);
         if (task == null) {
-            player.sendMessage(ChatColor.RED + "You are not ready to complete the ritual.");
+            player.sendMessage(ChatColor.RED + "You are not readys to complete the ritual.");
             return;
         }
 
@@ -189,6 +189,7 @@ public class CowSacrificeListener extends CancellableListener {
                     if (bossBarRangeTask != null) {
                         bossBarRangeTask.cancel();
                     }
+                    pendingRituals.remove(player);
                 }
 
                 @Override

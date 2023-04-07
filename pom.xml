@@ -22,10 +22,6 @@
           <id>spigot-repo</id>
           <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
       </repository>
-<!--      <repository>-->
-<!--        <id>jitpack.io</id>-->
-<!--        <url>https://jitpack.io</url>-->
-<!--      </repository>-->
   </repositories>
 
   <dependencies>
@@ -48,12 +44,6 @@
       <scope>system</scope>
       <systemPath>${project.basedir}/build-resources/EmojiChat.jar</systemPath>
     </dependency>
-<!--    <dependency>-->
-<!--      <groupId>com.github.RadBuilder</groupId>-->
-<!--      <artifactId>EmojiChat</artifactId>-->
-<!--      <version>v1.8.3</version>-->
-<!--      <scope>provided</scope>-->
-<!--    </dependency>-->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -101,7 +91,7 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.8.1</version>
           <configuration>
-            <release>11</release>
+            <release>${maven.compiler.release}</release>
           </configuration>
         </plugin>
         <plugin>
