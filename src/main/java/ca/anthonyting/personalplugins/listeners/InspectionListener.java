@@ -13,6 +13,7 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InspectionListener implements Listener {
@@ -22,7 +23,7 @@ public class InspectionListener implements Listener {
     private final MainPlugin plugin = MainPlugin.getInstance();
 
     private String getPotionName(PotionMeta meta) {
-        return meta.getBasePotionData().getType().toString().toLowerCase().replace("_", " ");
+        return Objects.requireNonNull(meta.getBasePotionType()).toString().toLowerCase().replace("_", " ");
     }
 
     @EventHandler
@@ -104,7 +105,7 @@ public class InspectionListener implements Listener {
             inspector.sendMessage(ChatColor.GREEN + "One more round to inspect " + inspectedPlayer.getName() + "...");
         }
         // display stinky particles
-        inspectedPlayer.getWorld().spawnParticle(Particle.SMOKE_LARGE, inspectedPlayer.getLocation(), 10);
+        inspectedPlayer.getWorld().spawnParticle(Particle.LARGE_SMOKE, inspectedPlayer.getLocation(), 10);
         hitCountByPlayer.put(inspector, ++hitCount);
         if (hitCount < 3) {
             return;
@@ -153,8 +154,7 @@ public class InspectionListener implements Listener {
 
         inventory.all(Material.SPLASH_POTION).forEach((key, value) -> {
                     var meta = value.getItemMeta();
-                    if (meta instanceof PotionMeta) {
-                        var potionType = (PotionMeta) meta;
+                    if (meta instanceof PotionMeta potionType) {
                         fullMessage
                                 .append("- ")
                                 .append(value.getAmount())

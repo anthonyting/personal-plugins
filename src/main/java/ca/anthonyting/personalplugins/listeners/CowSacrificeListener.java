@@ -133,7 +133,7 @@ public class CowSacrificeListener extends CancellableListener {
         world.setThundering(true);
 
         // show ritualistic particles at the last cow location
-        world.spawnParticle(Particle.SPELL_WITCH, task.getLastCowLocation(), 100, 0.5, 0.5, 0.5, 0.5);
+        world.spawnParticle(Particle.WITCH, task.getLastCowLocation(), 100, 0.5, 0.5, 0.5, 0.5);
 
         // one minecraft day
         final var weatherDuration = 24000;

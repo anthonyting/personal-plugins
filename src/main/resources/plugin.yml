@@ -1,7 +1,7 @@
 main: ca.anthonyting.personalplugins.MainPlugin
 name: Custom
-version: "0.1"
-api-version: "1.19"
+version: "0.2"
+api-version: "1.21"
 softdepend:
   - EmojiChat
 commands:

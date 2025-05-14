@@ -1,5 +1,6 @@
 package ca.anthonyting.personalplugins.commands;
 
+import ca.anthonyting.personalplugins.util.Players;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -50,7 +51,7 @@ public class PlayTime implements CommandExecutor {
 
     private Double getTimePlayedInHours(String targetName) {
         OfflinePlayer target = null;
-        for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+        for (OfflinePlayer offlinePlayer : Players.getOfflinePlayersCached()) {
             if (offlinePlayer.getName() != null &&
                     offlinePlayer.getName().toLowerCase(Locale.ENGLISH)
                             .equals(targetName.toLowerCase(Locale.ENGLISH))) {
@@ -94,7 +95,7 @@ public class PlayTime implements CommandExecutor {
         SortedMap<Double, OfflinePlayer> allPlayers = new TreeMap<>(Collections.reverseOrder());
         double totalTimePlayed = 0;
         double currentTimePlayed;
-        for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+        for (OfflinePlayer offlinePlayer : Players.getOfflinePlayersCached()) {
             currentTimePlayed = getTimePlayedInHours(offlinePlayer);
             totalTimePlayed += currentTimePlayed;
             allPlayers.put(currentTimePlayed, offlinePlayer);

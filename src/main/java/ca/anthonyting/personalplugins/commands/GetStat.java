@@ -1,6 +1,8 @@
 package ca.anthonyting.personalplugins.commands;
 
+import ca.anthonyting.personalplugins.MainPlugin;
 import ca.anthonyting.personalplugins.exceptions.PlayerNotFoundException;
+import ca.anthonyting.personalplugins.util.Players;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
@@ -8,6 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Locale;
@@ -29,7 +32,7 @@ public class GetStat implements CommandExecutor {
 
     private Integer getStatisticOfName(String targetName, String statisticName) throws PlayerNotFoundException {
         OfflinePlayer target = null;
-        for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+        for (OfflinePlayer offlinePlayer : Players.getOfflinePlayersCached()) {
             if (offlinePlayer.getName() != null &&
                     offlinePlayer.getName().toLowerCase(Locale.ENGLISH)
                             .equals(targetName.toLowerCase(Locale.ENGLISH))) {
