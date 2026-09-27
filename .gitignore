@@ -14,3 +14,11 @@ jars/
 out/
 # emojichat.jar must be here
 build-resources/
+
+gradle.properties
+gradle
+gradlew
+gradlew.bat
+.gradle
+build
+run
