@@ -1,6 +1,4 @@
 plugins {
-    java
-    id("java")
     id("java-library")
     id("com.gradleup.shadow") version "9.6.1"
     id("xyz.jpenilla.run-paper") version "3.1.0"
@@ -26,7 +24,9 @@ java {
 dependencies {
     // Paper API (Provided by server at runtime)
     compileOnly("io.papermc.paper:paper-api:26.3.build.+")
-    testCompileOnly("io.papermc.paper:paper-api:26.3.build.+")
+    
+    // Authlib (Required for GameProfile and skin properties)
+    compileOnly("com.mojang:authlib:10.0.77")
 
     // Compile & Shaded dependencies
     implementation("net.java.dev.jna:jna:5.12.1")
@@ -57,4 +57,8 @@ tasks {
     runServer {
         minecraftVersion("26.3")
     }
+}
+
+configurations {
+    testCompileClasspath.get().extendsFrom(compileOnly.get())
 }

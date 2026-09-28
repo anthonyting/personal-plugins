@@ -24,6 +24,10 @@ commands:
     description: Stop server with timer
     permission: personalplugins.stopserver
     usage: "Usage: /<command> [cancel | seconds]"
+  spawnremnant:
+    description: Summon a player's remnant
+    permission: personalplugins.spawnremnant
+    usage: "Usage: /<command> <player>"
 permissions:
   personalplugins.forcebackup:
     description: Allows forcebackup
@@ -47,4 +51,7 @@ permissions:
     default: op
   personalplugins.inspect:
     description: Allows inspection of players
+    default: op
+  personalplugins.spawnremnant:
+    description: Allows summoning player remnants
     default: op

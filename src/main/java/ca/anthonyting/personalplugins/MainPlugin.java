@@ -2,6 +2,7 @@ package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.commands.*;
 import ca.anthonyting.personalplugins.listeners.*;
+import ca.anthonyting.personalplugins.remnant.RemnantManager;
 import ca.anthonyting.personalplugins.tabcomplete.EmojiMessageComplete;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
 import io.github.radbuilder.emojichat.EmojiChat;
@@ -22,6 +23,7 @@ public class MainPlugin extends JavaPlugin {
     private ServerListListener serverListListener = null;
     private TempBackup backupMaker;
     private LinkedHashMap<String, Character> emojis;
+    private RemnantManager remnantManager;
 
     private final ArrayList<CancellableListener> cancellableListeners = new ArrayList<>();
 
@@ -68,6 +70,8 @@ public class MainPlugin extends JavaPlugin {
         }
 
         pluginManager.registerEvents(new InspectionListener(), this);
+
+        remnantManager.registerListeners();
     }
 
     private void initializeBackups() {
@@ -90,6 +94,7 @@ public class MainPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+        remnantManager = new RemnantManager(this);
 
         saveDefaultConfig();
         getConfig().options().copyDefaults(true);
@@ -122,6 +127,13 @@ public class MainPlugin extends JavaPlugin {
         if (stopServer != null) {
             stopServer.setExecutor(new StopServer());
         }
+
+        PluginCommand spawnRemnant = getCommand("spawnremnant");
+        if (spawnRemnant != null) {
+            var command = new SpawnRemnantCommand(this);
+            spawnRemnant.setExecutor(command);
+            spawnRemnant.setTabCompleter(command);
+        }
     }
 
     @Override
@@ -144,5 +156,9 @@ public class MainPlugin extends JavaPlugin {
 
     public LinkedHashMap<String, Character> getEmojis() {
         return this.emojis;
+    }
+
+    public RemnantManager getRemnantManager() {
+        return remnantManager;
     }
 }
