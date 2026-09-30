@@ -20,15 +20,12 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.List;
 import java.util.UUID;
 
 public class RemnantDeathListener implements Listener {
-
-    private static final long DROP_LIFETIME_TICKS = 30 * 60 * 20L;
 
     private final MainPlugin plugin;
     private final RemnantManager remnants;
@@ -78,11 +75,12 @@ public class RemnantDeathListener implements Listener {
         remnant.setSilent(true);
         remnants.clearRemnant(remnant);
         notifyOwnerAndRemoveCompass(remnant);
-        YamlConfiguration config = getPlayerConfig(remnant);
+        UUID ownerUuid = getOwnerUuid(remnant);
+        YamlConfiguration config = ownerUuid == null ? null : remnants.removeCachedPlayerData(ownerUuid);
 
         List<ItemStack> drops;
         if (config == null) {
-            plugin.getLogger().warning("Player remnant died without stored player data; preserving its default item drops.");
+            plugin.getLogger().warning("Player remnant died without cached player data; preserving its default item drops.");
             drops = event.getDrops().stream().map(ItemStack::clone).toList();
         } else {
             drops = PlayerDataHandler.getRemnantDrops(config);
@@ -90,7 +88,6 @@ public class RemnantDeathListener implements Listener {
         }
 
         event.getDrops().clear();
-        UUID ownerUuid = getOwnerUuid(remnant);
         if (ownerUuid == null) {
             event.setDroppedExp(0);
             plugin.getLogger().warning("Player remnant has no valid owner UUID; suppressing drops to prevent public pickup.");
@@ -102,15 +99,16 @@ public class RemnantDeathListener implements Listener {
                 continue;
             }
             Item item = remnant.getWorld().dropItemNaturally(remnant.getLocation(), drop);
-            item.setUnlimitedLifetime(true);
+            item.setUnlimitedLifetime(false);
+            item.setWillAge(true);
+            item.setCanMobPickup(false);
             item.setOwner(ownerUuid);
             item.getPersistentDataContainer().set(remnants.getDropKey(), PersistentDataType.BYTE, (byte) 1);
             item.setFireTicks(0);
-            Bukkit.getScheduler().runTaskLater(plugin, item::remove, DROP_LIFETIME_TICKS);
             spawnedDrops++;
         }
         plugin.getLogger().info("Player remnant died; spawned " + spawnedDrops
-                + " owner-restricted item stacks with a 30-minute lifetime.");
+                + " owner-restricted item stacks with normal despawn behavior.");
     }
 
     private UUID getOwnerUuid(Mannequin remnant) {
@@ -204,12 +202,4 @@ public class RemnantDeathListener implements Listener {
         return instanceId.equals(targetId);
     }
 
-    private YamlConfiguration getPlayerConfig(Mannequin remnant) {
-        for (MetadataValue value : remnant.getMetadata("player_config")) {
-            if (value.getOwningPlugin() == plugin && value.value() instanceof YamlConfiguration config) {
-                return config;
-            }
-        }
-        return null;
-    }
 }

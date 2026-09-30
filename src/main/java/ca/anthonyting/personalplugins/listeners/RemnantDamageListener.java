@@ -28,10 +28,19 @@ public class RemnantDamageListener implements Listener {
             return;
         }
 
+        if (remnants.isFinishingDeferredDeath(remnant)) {
+            return;
+        }
+
         if (event instanceof EntityDamageByEntityEvent byEntity) {
             Player attacker = getAttackingPlayer(byEntity.getDamager());
             if (attacker != null
                     && (isOwner(attacker, remnant) || attacker.hasPermission("personalplugins.killremnant"))) {
+                if (remnants.isPlayerDataLoading(remnant)
+                        && event.getFinalDamage() >= remnant.getHealth()) {
+                    event.setCancelled(true);
+                    remnants.deferRemnantDeath(remnant, attacker);
+                }
                 return;
             }
         }

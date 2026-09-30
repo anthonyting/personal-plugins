@@ -1,10 +1,20 @@
 package ca.anthonyting.personalplugins.util;
 
 import ca.anthonyting.personalplugins.MainPlugin;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.MapDecorations;
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.World;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.configuration.ConfigurationSection;
@@ -14,11 +24,21 @@ import org.bukkit.entity.Mannequin;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BundleMeta;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.MapMeta;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.Repairable;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
+import org.bukkit.map.MapCursor;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -27,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class PlayerDataHandler {
 
@@ -53,7 +74,8 @@ public class PlayerDataHandler {
             "minecraft:custom_name", "minecraft:lore", "minecraft:damage",
             "minecraft:enchantments", "minecraft:stored_enchantments",
             "minecraft:map_id", "minecraft:container", "minecraft:bundle_contents",
-            "minecraft:repair_cost"
+            "minecraft:repair_cost", "minecraft:trim", "minecraft:potion_contents",
+            "minecraft:map_decorations", "minecraft:item_name", "minecraft:map_color"
     );
 
     /**
@@ -65,31 +87,41 @@ public class PlayerDataHandler {
      * Loads player data by username or UUID from the server's playerdata folder.
      */
     public static RestoredPlayerData loadFromDisk(MainPlugin plugin, String username, UUID uuid) throws IllegalStateException {
+        YamlConfiguration config = loadConfigFromDisk(plugin, username, uuid);
+        Location loc = parseLocation(config);
+        return new RestoredPlayerData(config, loc);
+    }
+
+    public static CompletableFuture<YamlConfiguration> loadConfigFromDiskAsync(
+            MainPlugin plugin, String username, UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> loadConfigFromDisk(plugin, username, uuid));
+    }
+
+    public static YamlConfiguration loadConfigFromDisk(MainPlugin plugin, String username, UUID uuid)
+            throws IllegalStateException {
+        File file = findPlayerDataFile(plugin, username, uuid);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+        logUnrecognizedRootKeys(config);
+        return config;
+    }
+
+    private static File findPlayerDataFile(MainPlugin plugin, String username, UUID uuid) {
         File folder = new File(plugin.getDataFolder(), "playerdata");
 
         File fileByUsername = new File(folder, username + ".yml");
         File fileByUuid = new File(folder, uuid + ".yml");
-
-        YamlConfiguration config = null;
-
         if (fileByUsername.exists()) {
-            config = YamlConfiguration.loadConfiguration(fileByUsername);
-            Bukkit.getLogger().info("[PlayerDataHandler] Loaded player data from disk by username: " + fileByUsername.getAbsolutePath());
-        } else if (fileByUuid.exists()) {
-            config = YamlConfiguration.loadConfiguration(fileByUuid);
-            Bukkit.getLogger().info("[PlayerDataHandler] Loaded player data from disk by UUID: " + fileByUuid.getAbsolutePath());
+            Bukkit.getLogger().info("[PlayerDataHandler] Loading player data from disk by username: " + fileByUsername.getAbsolutePath());
+            return fileByUsername;
         }
-
-        if (config == null) {
-            throw new IllegalStateException(String.format(
-                    "No player data YAML found for '%s' (UUID: %s) in '%s'",
-                    username, uuid, folder.getAbsolutePath()
-            ));
+        if (fileByUuid.exists()) {
+            Bukkit.getLogger().info("[PlayerDataHandler] Loading player data from disk by UUID: " + fileByUuid.getAbsolutePath());
+            return fileByUuid;
         }
-
-        logUnrecognizedRootKeys(config);
-        Location loc = parseLocation(config);
-        return new RestoredPlayerData(config, loc);
+        throw new IllegalStateException(String.format(
+                "No player data YAML found for '%s' (UUID: %s) in '%s'",
+                username, uuid, folder.getAbsolutePath()
+        ));
     }
 
     public static RestoredPlayerData loadFromDisk(MainPlugin plugin, UUID uuid) throws IllegalStateException {
@@ -291,12 +323,146 @@ public class PlayerDataHandler {
         if (meta != null) {
             item.setItemMeta(meta);
         }
+        if (rawComponents instanceof Map<?, ?> componentsMap) {
+            parseDirectItemComponents(componentsMap, item);
+        }
 
         return item;
     }
 
+    private static void parseDirectItemComponents(Map<?, ?> components, ItemStack item) {
+        if (components.containsKey("minecraft:map_decorations")) {
+            if (!(components.get("minecraft:map_decorations") instanceof Map<?, ?> rawDecorations)) {
+                throw new IllegalStateException("Invalid map decorations component.");
+            }
+            MapDecorations.Builder decorations = MapDecorations.mapDecorations();
+            for (Map.Entry<?, ?> entry : rawDecorations.entrySet()) {
+                String id = String.valueOf(entry.getKey());
+                if (!(entry.getValue() instanceof Map<?, ?> decoration)
+                        || !(decoration.get("type") instanceof String typeId)
+                        || !(decoration.get("x") instanceof Number x)
+                        || !(decoration.get("z") instanceof Number z)
+                        || !(decoration.get("rotation") instanceof Number rotation)
+                        || !decoration.keySet().stream().map(String::valueOf)
+                        .allMatch(Set.of("type", "x", "z", "rotation")::contains)) {
+                    throw new IllegalStateException("Invalid map decoration entry '" + id + "'.");
+                }
+                NamespacedKey typeKey = NamespacedKey.fromString(typeId);
+                MapCursor.Type type = typeKey == null ? null
+                        : RegistryAccess.registryAccess().getRegistry(RegistryKey.MAP_DECORATION_TYPE).get(typeKey);
+                if (type == null) {
+                    throw new IllegalStateException("Unknown map decoration type '" + typeId + "'.");
+                }
+                decorations.put(id, MapDecorations.decorationEntry(
+                        type, x.doubleValue(), z.doubleValue(), rotation.floatValue()));
+            }
+            item.setData(DataComponentTypes.MAP_DECORATIONS, decorations.build());
+        }
+
+        if (components.containsKey("minecraft:item_name")) {
+            item.setData(DataComponentTypes.ITEM_NAME, parseItemName(components.get("minecraft:item_name")));
+        }
+    }
+
+    private static Component parseItemName(Object rawName) {
+        if (rawName instanceof String json) {
+            return GsonComponentSerializer.gson().deserialize(json);
+        }
+        if (rawName instanceof Map<?, ?> nameMap
+                && nameMap.size() == 1
+                && nameMap.get("translate") instanceof String translationKey) {
+            return Component.translatable(translationKey);
+        }
+        throw new IllegalStateException("Unsupported or invalid item-name component: " + rawName);
+    }
+
     public static void restoreEquipment(YamlConfiguration config, Mannequin remnant) {
         applyEquipmentToRemnant(config, remnant);
+    }
+
+    public static void restoreAttributes(YamlConfiguration config, Mannequin remnant) {
+        Object rawAttributes = config.get("attributes");
+        if (rawAttributes == null) {
+            return;
+        }
+        if (!(rawAttributes instanceof List<?> attributes)) {
+            throw new IllegalStateException("Invalid player attributes: expected a list.");
+        }
+
+        List<String> unsupportedAttributes = new ArrayList<>();
+        for (Object rawAttribute : attributes) {
+            if (!(rawAttribute instanceof Map<?, ?> attributeMap)
+                    || !(attributeMap.get("id") instanceof String id)
+                    || !(attributeMap.get("base") instanceof Number base)
+                    || !attributeMap.keySet().stream().map(String::valueOf)
+                    .allMatch(Set.of("id", "base", "modifiers")::contains)
+                    || !Double.isFinite(base.doubleValue())) {
+                throw new IllegalStateException("Invalid player attribute entry: " + rawAttribute);
+            }
+            NamespacedKey key = NamespacedKey.fromString(id);
+            Attribute attribute = key == null
+                    ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.ATTRIBUTE).get(key);
+            if (attribute == null) {
+                throw new IllegalStateException("Unknown player attribute '" + id + "'.");
+            }
+
+            AttributeInstance instance = remnant.getAttribute(attribute);
+            Object rawModifiers = attributeMap.get("modifiers");
+            List<AttributeModifier> modifiers = new ArrayList<>();
+            if (rawModifiers != null) {
+                if (!(rawModifiers instanceof List<?> modifierList)) {
+                    throw new IllegalStateException("Invalid modifiers for player attribute '" + id + "'.");
+                }
+                for (Object rawModifier : modifierList) {
+                    if (!(rawModifier instanceof Map<?, ?> modifierMap)) {
+                        throw new IllegalStateException("Invalid modifier for player attribute '" + id + "': " + rawModifier);
+                    }
+                    modifiers.add(parseAttributeModifier(modifierMap, id));
+                }
+            }
+            if (instance == null) {
+                unsupportedAttributes.add(id);
+                continue;
+            }
+            instance.setBaseValue(base.doubleValue());
+            for (AttributeModifier modifier : modifiers) {
+                instance.removeModifier(modifier.getKey());
+                instance.addModifier(modifier);
+            }
+        }
+        if (!unsupportedAttributes.isEmpty()) {
+            Bukkit.getLogger().warning("[PlayerDataHandler] Player attributes not supported by mannequin and not applied: "
+                    + unsupportedAttributes);
+        }
+    }
+
+    private static AttributeModifier parseAttributeModifier(Map<?, ?> modifierMap, String attributeId) {
+        if (!modifierMap.keySet().stream().map(String::valueOf)
+                .allMatch(Set.of("id", "amount", "operation")::contains)) {
+            throw new IllegalStateException("Unsupported modifier field for player attribute '" + attributeId + "'.");
+        }
+        Object idValue = modifierMap.get("id");
+        Object amountValue = modifierMap.get("amount");
+        Object operationValue = modifierMap.get("operation");
+        if (!(idValue instanceof String id)
+                || !(amountValue instanceof Number amount)
+                || !(operationValue instanceof String operationName)
+                || !Double.isFinite(amount.doubleValue())) {
+            throw new IllegalStateException("Invalid modifier data for player attribute '" + attributeId + "'.");
+        }
+        NamespacedKey key = NamespacedKey.fromString(id);
+        if (key == null) {
+            throw new IllegalStateException("Invalid attribute modifier key '" + id + "'.");
+        }
+        AttributeModifier.Operation operation = switch (operationName) {
+            case "add_value" -> AttributeModifier.Operation.ADD_NUMBER;
+            case "add_multiplied_base" -> AttributeModifier.Operation.ADD_SCALAR;
+            case "add_multiplied_total" -> AttributeModifier.Operation.MULTIPLY_SCALAR_1;
+            default -> throw new IllegalStateException("Unsupported attribute modifier operation '"
+                    + operationName + "'.");
+        };
+        return new AttributeModifier(key, amount.doubleValue(), operation);
     }
 
     private static Map<String, Object> sectionToMap(ConfigurationSection section) {
@@ -355,7 +521,8 @@ public class PlayerDataHandler {
                                 Bukkit.getLogger().warning("[PlayerDataHandler] Equipment slot '" + slot + "' could not be mapped to a valid item map.");
                             }
                         } catch (RuntimeException e) {
-                            throw new IllegalStateException("Could not restore remnant equipment slot '" + slot + "'.", e);
+                            throw new IllegalStateException(
+                                    "Could not restore remnant equipment slot '" + slot + "': " + e.getMessage(), e);
                         }
                     } else {
                     }
@@ -391,7 +558,8 @@ public class PlayerDataHandler {
                     }
 
                 } catch (RuntimeException e) {
-                    throw new IllegalStateException("Could not restore remnant inventory slot " + slot + ".", e);
+                    throw new IllegalStateException(
+                            "Could not restore remnant inventory slot " + slot + ": " + e.getMessage(), e);
                 }
             }
         } else {
@@ -452,18 +620,42 @@ public class PlayerDataHandler {
             repairable.setRepairCost(repairCost);
         }
 
+        if (components.containsKey("minecraft:trim")) {
+            if (!(components.get("minecraft:trim") instanceof Map<?, ?> trimMap)
+                    || !(meta instanceof ArmorMeta armorMeta)) {
+                throw new IllegalStateException("Unsupported or invalid armor-trim component.");
+            }
+            Object materialValue = trimMap.get("material");
+            Object patternValue = trimMap.get("pattern");
+            if (!(materialValue instanceof String materialId) || !(patternValue instanceof String patternId)) {
+                throw new IllegalStateException("Armor-trim component must specify material and pattern keys.");
+            }
+
+            NamespacedKey materialKey = NamespacedKey.fromString(materialId);
+            NamespacedKey patternKey = NamespacedKey.fromString(patternId);
+            TrimMaterial trimMaterial = materialKey == null ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.TRIM_MATERIAL).get(materialKey);
+            TrimPattern trimPattern = patternKey == null ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.TRIM_PATTERN).get(patternKey);
+            if (trimMaterial == null || trimPattern == null) {
+                throw new IllegalStateException("Unknown armor trim material or pattern: "
+                        + materialId + " / " + patternId);
+            }
+            armorMeta.setTrim(new ArmorTrim(trimMaterial, trimPattern));
+        }
+
         if (components.containsKey("minecraft:enchantments")) {
             if (!(components.get("minecraft:enchantments") instanceof Map<?, ?> enchants)) {
                 throw new IllegalStateException("Invalid item enchantments component.");
             }
-            parseEnchantmentMap(enchants, meta);
+            parseEnchantmentMap(enchants, meta, false);
         }
 
         if (components.containsKey("minecraft:stored_enchantments")) {
             if (!(components.get("minecraft:stored_enchantments") instanceof Map<?, ?> storedEnchants)) {
                 throw new IllegalStateException("Invalid stored-enchantments component.");
             }
-            parseEnchantmentMap(storedEnchants, meta);
+            parseEnchantmentMap(storedEnchants, meta, true);
         }
 
         if (components.containsKey("minecraft:map_id")) {
@@ -472,6 +664,14 @@ public class PlayerDataHandler {
             }
             int mapId = mapIdValue.intValue();
             mapMeta.setMapId(mapId);
+        }
+
+        if (components.containsKey("minecraft:map_color")) {
+            if (!(components.get("minecraft:map_color") instanceof Number colorValue)
+                    || !(meta instanceof MapMeta mapMeta)) {
+                throw new IllegalStateException("Unsupported or invalid map-color component.");
+            }
+            mapMeta.setColor(Color.fromRGB(colorValue.intValue()));
         }
 
         if (components.containsKey("minecraft:container")) {
@@ -489,6 +689,99 @@ public class PlayerDataHandler {
             }
             parseBundleContents(bundleContents, bundleMeta);
         }
+
+        if (components.containsKey("minecraft:potion_contents")) {
+            if (!(components.get("minecraft:potion_contents") instanceof Map<?, ?> potionContents)
+                    || !(meta instanceof PotionMeta potionMeta)) {
+                throw new IllegalStateException("Unsupported or invalid potion contents component.");
+            }
+            parsePotionContents(potionContents, potionMeta);
+        }
+    }
+
+    private static void parsePotionContents(Map<?, ?> potionContents, PotionMeta potionMeta) {
+        for (Object keyObj : potionContents.keySet()) {
+            String key = String.valueOf(keyObj);
+            if (!Set.of("potion", "custom_color", "custom_effects").contains(key)) {
+                throw new IllegalStateException("Unsupported potion contents field '" + key + "'.");
+            }
+        }
+
+        if (potionContents.containsKey("potion")) {
+            Object potionValue = potionContents.get("potion");
+            if (!(potionValue instanceof String potionId)) {
+                throw new IllegalStateException("Invalid base potion identifier: " + potionValue);
+            }
+            NamespacedKey potionKey = NamespacedKey.fromString(potionId);
+            PotionType potionType = potionKey == null ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.POTION).get(potionKey);
+            if (potionType == null) {
+                throw new IllegalStateException("Unknown base potion '" + potionId + "'.");
+            }
+            potionMeta.setBasePotionType(potionType);
+        }
+
+        if (potionContents.containsKey("custom_color")) {
+            Object colorValue = potionContents.get("custom_color");
+            if (!(colorValue instanceof Number color)) {
+                throw new IllegalStateException("Invalid custom potion color: " + colorValue);
+            }
+            potionMeta.setColor(Color.fromRGB(color.intValue()));
+        }
+
+        if (potionContents.containsKey("custom_effects")) {
+            if (!(potionContents.get("custom_effects") instanceof List<?> effects)) {
+                throw new IllegalStateException("Invalid custom potion effects.");
+            }
+            for (Object rawEffect : effects) {
+                if (!(rawEffect instanceof Map<?, ?> effectMap)) {
+                    throw new IllegalStateException("Invalid custom potion effect: " + rawEffect);
+                }
+                potionMeta.addCustomEffect(parsePotionEffect(effectMap), true);
+            }
+        }
+    }
+
+    private static PotionEffect parsePotionEffect(Map<?, ?> effectMap) {
+        for (Object keyObj : effectMap.keySet()) {
+            String key = String.valueOf(keyObj);
+            if (!Set.of("id", "amplifier", "duration", "ambient", "show_particles", "show_icon").contains(key)) {
+                throw new IllegalStateException("Unsupported custom potion effect field '" + key + "'.");
+            }
+        }
+
+        Object idValue = effectMap.get("id");
+        Object amplifierValue = effectMap.get("amplifier");
+        Object durationValue = effectMap.get("duration");
+        if (!(idValue instanceof String id)
+                || !(amplifierValue instanceof Number amplifier)
+                || !(durationValue instanceof Number duration)) {
+            throw new IllegalStateException("Custom potion effect must specify id, amplifier, and duration.");
+        }
+        NamespacedKey effectKey = NamespacedKey.fromString(id);
+        PotionEffectType effectType = effectKey == null ? null : PotionEffectType.getByKey(effectKey);
+        if (effectType == null) {
+            throw new IllegalStateException("Unknown custom potion effect '" + id + "'.");
+        }
+        return new PotionEffect(
+                effectType,
+                duration.intValue(),
+                amplifier.intValue(),
+                getBoolean(effectMap, "ambient", false),
+                getBoolean(effectMap, "show_particles", true),
+                getBoolean(effectMap, "show_icon", true)
+        );
+    }
+
+    private static boolean getBoolean(Map<?, ?> values, String key, boolean defaultValue) {
+        Object value = values.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (!(value instanceof Boolean booleanValue)) {
+            throw new IllegalStateException("Expected boolean value for '" + key + "', found: " + value);
+        }
+        return booleanValue;
     }
 
     private static void parseBundleContents(List<?> bundleContents, BundleMeta bundleMeta) {
@@ -545,7 +838,11 @@ public class PlayerDataHandler {
         blockStateMeta.setBlockState(shulkerBox);
     }
 
-    private static void parseEnchantmentMap(Map<?, ?> enchantMap, ItemMeta meta) {
+    private static void parseEnchantmentMap(Map<?, ?> enchantMap, ItemMeta meta, boolean stored) {
+        if (stored && !(meta instanceof EnchantmentStorageMeta)) {
+            throw new IllegalStateException("Stored enchantments are only supported on enchanted books.");
+        }
+        EnchantmentStorageMeta storageMeta = stored ? (EnchantmentStorageMeta) meta : null;
         for (Map.Entry<?, ?> entry : enchantMap.entrySet()) {
             String enchId = String.valueOf(entry.getKey()).replace("minecraft:", "").toLowerCase();
             if (!(entry.getValue() instanceof Number level)) {
@@ -555,7 +852,11 @@ public class PlayerDataHandler {
 
             Enchantment enchantment = Enchantment.getByKey(NamespacedKey.minecraft(enchId));
             if (enchantment != null) {
-                meta.addEnchant(enchantment, lvl, true);
+                if (storageMeta != null) {
+                    storageMeta.addStoredEnchant(enchantment, lvl, true);
+                } else {
+                    meta.addEnchant(enchantment, lvl, true);
+                }
             } else {
                 throw new IllegalStateException("Unsupported enchantment key '" + enchId + "'.");
             }
