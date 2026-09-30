@@ -55,3 +55,6 @@ permissions:
   personalplugins.spawnremnant:
     description: Allows summoning player remnants
     default: op
+  personalplugins.killremnant:
+    description: Allows damaging and killing any player remnant
+    default: op

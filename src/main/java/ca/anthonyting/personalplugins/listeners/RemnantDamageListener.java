@@ -2,7 +2,9 @@ package ca.anthonyting.personalplugins.listeners;
 
 import ca.anthonyting.personalplugins.remnant.RemnantManager;
 import org.bukkit.entity.Mannequin;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -26,10 +28,12 @@ public class RemnantDamageListener implements Listener {
             return;
         }
 
-        if (event instanceof EntityDamageByEntityEvent byEntity
-                && byEntity.getDamager() instanceof Player attacker
-                && isOwner(attacker, remnant)) {
-            return;
+        if (event instanceof EntityDamageByEntityEvent byEntity) {
+            Player attacker = getAttackingPlayer(byEntity.getDamager());
+            if (attacker != null
+                    && (isOwner(attacker, remnant) || attacker.hasPermission("personalplugins.killremnant"))) {
+                return;
+            }
         }
 
         event.setCancelled(true);
@@ -56,5 +60,16 @@ public class RemnantDamageListener implements Listener {
                 PersistentDataType.STRING
         );
         return player.getUniqueId().toString().equals(targetId);
+    }
+
+    private Player getAttackingPlayer(Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile
+                && projectile.getShooter() instanceof Player player) {
+            return player;
+        }
+        return null;
     }
 }

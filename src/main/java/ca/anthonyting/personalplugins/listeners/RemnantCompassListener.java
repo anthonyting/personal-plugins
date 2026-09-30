@@ -2,6 +2,7 @@ package ca.anthonyting.personalplugins.listeners;
 
 import ca.anthonyting.personalplugins.MainPlugin;
 import ca.anthonyting.personalplugins.remnant.RemnantManager;
+import java.util.Map;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -9,13 +10,14 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
-import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -41,31 +43,33 @@ public class RemnantCompassListener implements Listener {
 
         Inventory clickedInventory = event.getClickedInventory();
         boolean clickedPersonalInventory = clickedInventory == player.getInventory();
-        boolean clickedExternalInventory = clickedInventory != null
-                && !clickedPersonalInventory;
+        boolean clickedExternalInventory = clickedInventory != null && !clickedPersonalInventory;
         boolean compassOnClickedSlot = isRemnantCompass(event.getCurrentItem());
         boolean compassOnCursor = isRemnantCompass(event.getCursor());
         boolean compassInHotbarSwap = event.getHotbarButton() >= 0
                 && isRemnantCompass(player.getInventory().getItem(event.getHotbarButton()));
         boolean creativeCompassAction = event instanceof InventoryCreativeEvent
                 && (compassOnClickedSlot || compassOnCursor);
-        boolean shiftMovesCompassToContainer = clickedPersonalInventory
-                && event.getView().getTopInventory().getType() != InventoryType.CRAFTING
-                && event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
-                && compassOnClickedSlot;
         boolean dropsCompassFromCursor = clickedInventory == null
                 && compassOnCursor
                 && (event.getAction() == InventoryAction.DROP_ALL_CURSOR
                 || event.getAction() == InventoryAction.DROP_ONE_CURSOR);
-        boolean collectsCompassFromContainer = clickedExternalInventory
+        boolean collectsCompassFromContainer = clickedInventory != null
+                && clickedInventory != player.getInventory()
                 && event.getAction() == InventoryAction.COLLECT_TO_CURSOR
                 && containsRemnantCompass(event.getView().getTopInventory());
+        boolean shiftMovesCompassToContainer = clickedPersonalInventory
+                && event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                && compassOnClickedSlot;
+        boolean transfersCompassToExternalInventory = clickedExternalInventory
+                && (compassOnClickedSlot || compassOnCursor || compassInHotbarSwap);
+        boolean allowedOffhandSwap = event.getClick() == ClickType.SWAP_OFFHAND;
 
-        if ((clickedExternalInventory && (compassOnClickedSlot || compassOnCursor || compassInHotbarSwap))
+        if (creativeCompassAction
                 || shiftMovesCompassToContainer
                 || dropsCompassFromCursor
                 || collectsCompassFromContainer
-                || creativeCompassAction) {
+                || (transfersCompassToExternalInventory && !allowedOffhandSwap)) {
             deny(player, creativeCompassAction
                     ? "The compass is bound to you and cannot be copied."
                     : "The compass is bound to you and cannot be stored away.");
@@ -84,6 +88,32 @@ public class RemnantCompassListener implements Listener {
             deny(player, "The compass is bound to you and cannot be stored away.");
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        ItemStack cursor = player.getItemOnCursor();
+        if (!isRemnantCompass(cursor)) {
+            return;
+        }
+
+        ItemStack compass = cursor.clone();
+        player.setItemOnCursor(null);
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
+            if (!overflow.isEmpty()) {
+                player.setItemOnCursor(overflow.values().iterator().next());
+                player.sendMessage(ChatColor.RED + "Make room in your inventory to keep your remnant compass.");
+            } else {
+                player.saveData();
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
