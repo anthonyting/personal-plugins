@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 public class RemnantCompassListener implements Listener {
@@ -46,6 +47,8 @@ public class RemnantCompassListener implements Listener {
         boolean clickedExternalInventory = clickedInventory != null && !clickedPersonalInventory;
         boolean compassOnClickedSlot = isRemnantCompass(event.getCurrentItem());
         boolean compassOnCursor = isRemnantCompass(event.getCursor());
+        boolean bundleContainsCompass = containsRemnantCompass(event.getCurrentItem())
+                || containsRemnantCompass(event.getCursor());
         boolean compassInOffhand = isRemnantCompass(player.getInventory().getItemInOffHand());
         boolean compassInHotbarSwap = event.getHotbarButton() >= 0
                 && isRemnantCompass(player.getInventory().getItem(event.getHotbarButton()));
@@ -78,6 +81,8 @@ public class RemnantCompassListener implements Listener {
                 && (compassOnClickedSlot || compassOnCursor || compassInHotbarSwap);
 
         if (creativeCompassAction
+                || bundleContainsCompass
+                || (compassOnCursor && isBundle(event.getCurrentItem()))
                 || shiftMovesCompassToContainer
                 || dropsCompassFromCursor
                 || collectsCompassFromContainer
@@ -85,6 +90,8 @@ public class RemnantCompassListener implements Listener {
                 || (transfersCompassToExternalInventory && !allowedOffhandSwap)) {
             deny(player, creativeCompassAction
                     ? "The compass is bound to you and cannot be copied."
+                    : bundleContainsCompass || (compassOnCursor && isBundle(event.getCurrentItem()))
+                    ? "The compass cannot be stored in a bundle."
                     : inventoryFull && swapsCompassWithItem
                     ? "Make room in your inventory before swapping the remnant compass."
                     : "The compass is bound to you and cannot be stored away.");
@@ -250,10 +257,25 @@ public class RemnantCompassListener implements Listener {
 
     private boolean containsRemnantCompass(Inventory inventory) {
         for (ItemStack item : inventory.getContents()) {
-            if (isRemnantCompass(item)) {
+            if (containsRemnantCompass(item)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isBundle(ItemStack item) {
+        return item != null && item.hasItemMeta() && item.getItemMeta() instanceof BundleMeta;
+    }
+
+    private boolean containsRemnantCompass(ItemStack item) {
+        if (isRemnantCompass(item)) {
+            return true;
+        }
+        if (!isBundle(item)) {
+            return false;
+        }
+        BundleMeta bundleMeta = (BundleMeta) item.getItemMeta();
+        return bundleMeta.getItems().stream().anyMatch(this::containsRemnantCompass);
     }
 }
