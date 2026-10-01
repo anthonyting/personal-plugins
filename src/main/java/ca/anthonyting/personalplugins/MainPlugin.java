@@ -3,16 +3,13 @@ package ca.anthonyting.personalplugins;
 import ca.anthonyting.personalplugins.commands.*;
 import ca.anthonyting.personalplugins.listeners.*;
 import ca.anthonyting.personalplugins.remnant.RemnantManager;
-import ca.anthonyting.personalplugins.tabcomplete.EmojiMessageComplete;
 import ca.anthonyting.personalplugins.tabcomplete.GetStatComplete;
-import io.github.radbuilder.emojichat.EmojiChat;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 
 public class MainPlugin extends JavaPlugin {
     
@@ -22,7 +19,6 @@ public class MainPlugin extends JavaPlugin {
     }
     private ServerListListener serverListListener = null;
     private TempBackup backupMaker;
-    private LinkedHashMap<String, Character> emojis;
     private RemnantManager remnantManager;
 
     private final ArrayList<CancellableListener> cancellableListeners = new ArrayList<>();
@@ -113,15 +109,6 @@ public class MainPlugin extends JavaPlugin {
             getStat.setTabCompleter(new GetStatComplete());
         }
 
-        var emojichat = (EmojiChat) Bukkit.getPluginManager().getPlugin("EmojiChat");
-        PluginCommand emoji = getCommand("emoji");
-        if (emojichat != null && emoji != null) {
-            var emojis = emojichat.getEmojiHandler().getEmojis();
-            emoji.setExecutor(new EmojiMessage());
-            emoji.setTabCompleter(new EmojiMessageComplete());
-            this.emojis = emojis;
-        }
-
         var stopServer = getCommand("stopserver");
         if (stopServer != null) {
             stopServer.setExecutor(new StopServer());
@@ -151,10 +138,6 @@ public class MainPlugin extends JavaPlugin {
 
     public TempBackup getBackupMaker() {
         return backupMaker;
-    }
-
-    public LinkedHashMap<String, Character> getEmojis() {
-        return this.emojis;
     }
 
     public RemnantManager getRemnantManager() {
