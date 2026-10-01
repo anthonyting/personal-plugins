@@ -20,3 +20,6 @@ backup-freq: 3600
 
 cow-sacrifice: true
 
+remnants:
+  # If enabled, anyone can pick up items dropped when a Remnant dies.
+  allow-public-pickup: false

@@ -94,12 +94,11 @@ public class MainPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
-        remnantManager = new RemnantManager(this);
-
         saveDefaultConfig();
         getConfig().options().copyDefaults(true);
         saveConfig();
 
+        remnantManager = new RemnantManager(this);
         registerListeners();
         initializeBackups();
 

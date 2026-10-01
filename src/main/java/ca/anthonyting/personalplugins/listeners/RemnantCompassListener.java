@@ -46,8 +46,21 @@ public class RemnantCompassListener implements Listener {
         boolean clickedExternalInventory = clickedInventory != null && !clickedPersonalInventory;
         boolean compassOnClickedSlot = isRemnantCompass(event.getCurrentItem());
         boolean compassOnCursor = isRemnantCompass(event.getCursor());
+        boolean compassInOffhand = isRemnantCompass(player.getInventory().getItemInOffHand());
         boolean compassInHotbarSwap = event.getHotbarButton() >= 0
                 && isRemnantCompass(player.getInventory().getItem(event.getHotbarButton()));
+        boolean allowedOffhandSwap = event.getClick() == ClickType.SWAP_OFFHAND;
+        boolean inventoryFull = player.getInventory().firstEmpty() == -1;
+        boolean swapsCompassWithItem = (clickedPersonalInventory
+                && event.getAction() == InventoryAction.SWAP_WITH_CURSOR
+                && (compassOnClickedSlot || compassOnCursor)
+                && hasItem(event.getCurrentItem())
+                && hasItem(event.getCursor()))
+                || (clickedPersonalInventory
+                && event.getClick() == ClickType.NUMBER_KEY
+                && (compassOnClickedSlot || compassInHotbarSwap))
+                || (allowedOffhandSwap
+                && (compassOnClickedSlot || compassOnCursor || compassInOffhand));
         boolean creativeCompassAction = event instanceof InventoryCreativeEvent
                 && (compassOnClickedSlot || compassOnCursor);
         boolean dropsCompassFromCursor = clickedInventory == null
@@ -63,15 +76,17 @@ public class RemnantCompassListener implements Listener {
                 && compassOnClickedSlot;
         boolean transfersCompassToExternalInventory = clickedExternalInventory
                 && (compassOnClickedSlot || compassOnCursor || compassInHotbarSwap);
-        boolean allowedOffhandSwap = event.getClick() == ClickType.SWAP_OFFHAND;
 
         if (creativeCompassAction
                 || shiftMovesCompassToContainer
                 || dropsCompassFromCursor
                 || collectsCompassFromContainer
+                || (inventoryFull && swapsCompassWithItem)
                 || (transfersCompassToExternalInventory && !allowedOffhandSwap)) {
             deny(player, creativeCompassAction
                     ? "The compass is bound to you and cannot be copied."
+                    : inventoryFull && swapsCompassWithItem
+                    ? "Make room in your inventory before swapping the remnant compass."
                     : "The compass is bound to you and cannot be stored away.");
             event.setCancelled(true);
         }
@@ -95,6 +110,10 @@ public class RemnantCompassListener implements Listener {
         if (!(event.getPlayer() instanceof Player player)) {
             return;
         }
+        returnCursorCompass(player);
+    }
+
+    private void returnCursorCompass(Player player) {
         ItemStack cursor = player.getItemOnCursor();
         if (!isRemnantCompass(cursor)) {
             return;
@@ -102,18 +121,13 @@ public class RemnantCompassListener implements Listener {
 
         ItemStack compass = cursor.clone();
         player.setItemOnCursor(null);
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
-            Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
-            if (!overflow.isEmpty()) {
-                player.setItemOnCursor(overflow.values().iterator().next());
-                player.sendMessage(ChatColor.RED + "Make room in your inventory to keep your remnant compass.");
-            } else {
-                player.saveData();
-            }
-        });
+        Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
+        if (!overflow.isEmpty()) {
+            player.setItemOnCursor(overflow.values().iterator().next());
+            player.sendMessage(ChatColor.RED + "Make room in your inventory to keep your remnant compass.");
+        } else {
+            player.saveData();
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -170,8 +184,7 @@ public class RemnantCompassListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         String ownerId = event.getPlayer().getUniqueId().toString();
-        var instanceIds = remnants.getPendingCompassCleanup(ownerId);
-        if (instanceIds.isEmpty()) {
+        if (!remnants.hasPendingCompassCleanup(ownerId)) {
             return;
         }
 
@@ -179,12 +192,12 @@ public class RemnantCompassListener implements Listener {
         ItemStack[] contents = event.getPlayer().getInventory().getContents();
         for (int slot = 0; slot < contents.length; slot++) {
             ItemStack item = contents[slot];
-            if (instanceIds.stream().anyMatch(id -> isCompassFor(item, id))) {
+            if (isCompassForOwner(item, ownerId)) {
                 event.getPlayer().getInventory().setItem(slot, null);
                 removed++;
             }
         }
-        if (instanceIds.stream().anyMatch(id -> isCompassFor(event.getPlayer().getItemOnCursor(), id))) {
+        if (isCompassForOwner(event.getPlayer().getItemOnCursor(), ownerId)) {
             event.getPlayer().setItemOnCursor(null);
             removed++;
         }
@@ -211,12 +224,26 @@ public class RemnantCompassListener implements Listener {
                 );
     }
 
+    private boolean hasItem(ItemStack item) {
+        return item != null && !item.getType().isAir();
+    }
+
     private boolean isCompassFor(ItemStack item, String instanceId) {
         if (!isRemnantCompass(item)) {
             return false;
         }
         return instanceId.equals(item.getItemMeta().getPersistentDataContainer().get(
                 remnants.getCompassInstanceKey(),
+                PersistentDataType.STRING
+        ));
+    }
+
+    private boolean isCompassForOwner(ItemStack item, String ownerId) {
+        if (!isRemnantCompass(item)) {
+            return false;
+        }
+        return ownerId.equals(item.getItemMeta().getPersistentDataContainer().get(
+                remnants.getCompassOwnerKey(),
                 PersistentDataType.STRING
         ));
     }

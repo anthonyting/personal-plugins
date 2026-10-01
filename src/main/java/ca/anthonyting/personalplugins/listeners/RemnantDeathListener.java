@@ -17,6 +17,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityCombustEvent;
+import java.util.logging.Level;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.ItemStack;
@@ -72,20 +73,42 @@ public class RemnantDeathListener implements Listener {
             return;
         }
 
-        remnant.setSilent(true);
-        remnants.clearRemnant(remnant);
-        notifyOwnerAndRemoveCompass(remnant);
         UUID ownerUuid = getOwnerUuid(remnant);
-        YamlConfiguration config = ownerUuid == null ? null : remnants.removeCachedPlayerData(ownerUuid);
+        YamlConfiguration config;
+        try {
+            config = ownerUuid == null ? null : remnants.getCachedPlayerData(ownerUuid);
+        } catch (RuntimeException e) {
+            preventRemnantDeath(event, remnant, e);
+            return;
+        }
+        if (config == null) {
+            preventRemnantDeath(event, remnant,
+                    new IllegalStateException("Player data is not available in the remnant cache."));
+            return;
+        }
 
         List<ItemStack> drops;
-        if (config == null) {
-            plugin.getLogger().warning("Player remnant died without cached player data; preserving its default item drops.");
-            drops = event.getDrops().stream().map(ItemStack::clone).toList();
-        } else {
+        int experience;
+        try {
             drops = PlayerDataHandler.getRemnantDrops(config);
-            event.setDroppedExp(PlayerDataHandler.getRemnantExperienceDrop(config));
+            experience = PlayerDataHandler.getRemnantExperienceDrop(config);
+        } catch (RuntimeException e) {
+            preventRemnantDeath(event, remnant, e);
+            return;
         }
+
+        String instanceId = remnant.getPersistentDataContainer().get(
+                remnants.getRemnantInstanceKey(),
+                PersistentDataType.STRING
+        );
+        boolean compassWasIssued = ownerUuid != null
+                && instanceId != null
+                && remnants.wasCompassIssued(ownerUuid, instanceId);
+        remnant.setSilent(true);
+        notifyOwnerAndRemoveCompass(remnant, compassWasIssued);
+        remnants.clearRemnant(remnant);
+        remnants.removeCachedPlayerData(ownerUuid);
+        event.setDroppedExp(experience);
 
         event.getDrops().clear();
         if (ownerUuid == null) {
@@ -102,13 +125,26 @@ public class RemnantDeathListener implements Listener {
             item.setUnlimitedLifetime(false);
             item.setWillAge(true);
             item.setCanMobPickup(false);
-            item.setOwner(ownerUuid);
+            if (!remnants.isPublicPickupEnabled()) {
+                item.setOwner(ownerUuid);
+            }
             item.getPersistentDataContainer().set(remnants.getDropKey(), PersistentDataType.BYTE, (byte) 1);
             item.setFireTicks(0);
             spawnedDrops++;
         }
         plugin.getLogger().info("Player remnant died; spawned " + spawnedDrops
                 + " owner-restricted item stacks with normal despawn behavior.");
+    }
+
+    private void preventRemnantDeath(EntityDeathEvent event, Mannequin remnant, RuntimeException cause) {
+        event.setCancelled(true);
+        event.setReviveHealth(1.0);
+        String ownerId = remnant.getPersistentDataContainer().get(
+                remnants.getRemnantOwnerKey(),
+                PersistentDataType.STRING
+        );
+        plugin.getLogger().log(Level.SEVERE, "Prevented remnant death because its items could not be handled"
+                + " (owner UUID: " + ownerId + ").", cause);
     }
 
     private UUID getOwnerUuid(Mannequin remnant) {
@@ -126,7 +162,7 @@ public class RemnantDeathListener implements Listener {
         }
     }
 
-    private void notifyOwnerAndRemoveCompass(Mannequin remnant) {
+    private void notifyOwnerAndRemoveCompass(Mannequin remnant, boolean compassWasIssued) {
         String ownerId = remnant.getPersistentDataContainer().get(
                 remnants.getRemnantOwnerKey(),
                 PersistentDataType.STRING
@@ -159,8 +195,10 @@ public class RemnantDeathListener implements Listener {
         }
 
         if (owner == null) {
-            remnants.queueCompassCleanup(ownerId, instanceId);
-            plugin.getLogger().info("Queued compass cleanup for remnant " + instanceId + " and offline owner " + ownerId + ".");
+            if (compassWasIssued) {
+                remnants.queueCompassCleanup(ownerId);
+                plugin.getLogger().info("Queued compass cleanup for offline owner " + ownerId + ".");
+            }
             return;
         }
 
@@ -171,6 +209,9 @@ public class RemnantDeathListener implements Listener {
         }
         if (removedCompasses > 0) {
             owner.saveData();
+        }
+        if (!compassWasIssued && removedCompasses == 0) {
+            return;
         }
         owner.sendMessage(ChatColor.GREEN + "Your remnant has fallen. Its compass fades away.");
         plugin.getLogger().info("Remnant for " + owner.getName() + " died; removed " + removedCompasses

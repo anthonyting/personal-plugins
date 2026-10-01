@@ -12,6 +12,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -37,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Level;
 
 public class RemnantManager {
 
@@ -55,10 +57,7 @@ public class RemnantManager {
     private final NamespacedKey remnantInstanceKey;
     private final NamespacedKey dropKey;
     private final Set<UUID> pendingSpawns = new HashSet<>();
-    private final Set<UUID> deferredRemnantDeaths = new HashSet<>();
-    private final Set<UUID> finishingDeferredDeaths = new HashSet<>();
-    private final Map<UUID, CompletableFuture<YamlConfiguration>> playerDataLoads = new ConcurrentHashMap<>();
-    private final Map<UUID, YamlConfiguration> playerDataCache = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<YamlConfiguration>> playerDataCache = new ConcurrentHashMap<>();
 
     public RemnantManager(MainPlugin plugin) {
         this.plugin = plugin;
@@ -106,18 +105,11 @@ public class RemnantManager {
         pendingSpawns.remove(targetUuid);
     }
 
-    public void spawnForPlayer(Player recipient, UUID targetUuid, String username, boolean notifyMissingData) {
-        if (!recipient.isOnline()) {
+    public void spawnForPlayer(CommandSender recipient, UUID targetUuid, String username, boolean notifyMissingData) {
+        if (recipient instanceof Player player && !player.isOnline()) {
             return;
         }
         if (!notifyMissingData && hasSpawnedBefore(targetUuid)) {
-            return;
-        }
-        Player targetPlayer = Bukkit.getPlayer(targetUuid);
-        if (targetPlayer != null && targetPlayer.getInventory().firstEmpty() < 0) {
-            recipient.sendMessage(ChatColor.RED + (targetPlayer == recipient
-                    ? "Make room in your inventory before summoning your remnant."
-                    : username + " needs room in their inventory before the remnant can be summoned."));
             return;
         }
         if (!reserveSpawn(targetUuid)) {
@@ -155,21 +147,22 @@ public class RemnantManager {
                             if (error != null) {
                                 Throwable cause = error instanceof java.util.concurrent.CompletionException
                                         && error.getCause() != null ? error.getCause() : error;
-                                plugin.getLogger().severe("Failed to prepare remnant for " + canonicalUsername
-                                        + " (UUID: " + targetUuid + "): " + cause.getMessage());
-                                if (cause.getMessage() != null && cause.getMessage().startsWith("No player data YAML found")) {
-                                    if (recipient.isOnline() && notifyMissingData) {
+                                if (hasMissingPlayerDataCause(cause)) {
+                                    if (isRecipientAvailable(recipient) && notifyMissingData) {
                                         recipient.sendMessage(ChatColor.RED + "No remnant of " + canonicalUsername + " can be found.");
                                     }
-                                    plugin.getLogger().info("Cannot spawn remnant for " + canonicalUsername + ": no player data file exists.");
+                                    plugin.getLogger().info("Cannot spawn remnant for " + canonicalUsername
+                                            + " (UUID: " + targetUuid + "): no player data file exists.");
                                     return;
                                 }
-                                if (recipient.isOnline()) {
+                                plugin.getLogger().log(Level.SEVERE, "Failed to prepare remnant for " + canonicalUsername
+                                        + " (UUID: " + targetUuid + "): " + cause.getMessage(), cause);
+                                if (isRecipientAvailable(recipient)) {
                                     recipient.sendMessage(ChatColor.RED + "The remnant of " + canonicalUsername + " could not be summoned.");
                                 }
                                 return;
                             }
-                            if (!recipient.isOnline()) {
+                            if (!isRecipientAvailable(recipient)) {
                                 return;
                             }
                             Chunk chunk = preparation.chunk();
@@ -186,9 +179,9 @@ public class RemnantManager {
                                 }
                             }
                         } catch (RuntimeException e) {
-                            plugin.getLogger().severe("Failed to spawn remnant for " + canonicalUsername
-                                    + " (UUID: " + targetUuid + "): " + e.getMessage());
-                            if (recipient.isOnline()) {
+                            plugin.getLogger().log(Level.SEVERE, "Failed to spawn remnant for " + canonicalUsername
+                                    + " (UUID: " + targetUuid + "): " + e.getMessage(), e);
+                            if (isRecipientAvailable(recipient)) {
                                 recipient.sendMessage(ChatColor.RED + "The remnant of " + canonicalUsername + " could not be summoned.");
                             }
                         } finally {
@@ -197,19 +190,34 @@ public class RemnantManager {
                     }, Bukkit.getScheduler().getMainThreadExecutor(plugin));
         } catch (RuntimeException e) {
             releaseSpawn(targetUuid);
-            plugin.getLogger().severe("Failed to prepare remnant for " + canonicalUsername
-                    + " (UUID: " + targetUuid + "): " + e.getMessage());
+            plugin.getLogger().log(Level.SEVERE, "Failed to prepare remnant for " + canonicalUsername
+                    + " (UUID: " + targetUuid + "): " + e.getMessage(), e);
             recipient.sendMessage(ChatColor.RED + "The remnant of " + canonicalUsername + " could not be summoned.");
         }
     }
 
+    private boolean isRecipientAvailable(CommandSender recipient) {
+        return !(recipient instanceof Player player) || player.isOnline();
+    }
+
+    private boolean hasMissingPlayerDataCause(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PlayerDataHandler.PlayerDataNotFoundException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean spawn(RestoredPlayerData data, Location location, String username, UUID playerUuid,
-                         PlayerProfile profile, Player player) {
+                         PlayerProfile profile, CommandSender requester) {
         if (findActiveRemnant(playerUuid) != null) {
             plugin.getLogger().info("Denied duplicate remnant spawn for " + playerUuid + ".");
-            player.sendMessage(ChatColor.RED + "A remnant of " + username + " is already here.");
+            requester.sendMessage(ChatColor.RED + "A remnant of " + username + " is already here.");
             return false;
         }
+
+        PlayerDataHandler.validateRemnantData(data.config());
 
         String remnantInstanceId = UUID.randomUUID().toString();
         Mannequin remnant = location.getWorld().spawn(location, Mannequin.class, entity -> {
@@ -251,6 +259,11 @@ public class RemnantManager {
         remnant.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
         try {
             PlayerDataHandler.restoreAttributes(data.config(), remnant);
+        } catch (RuntimeException e) {
+            remnant.remove();
+            throw new IllegalStateException("Could not restore player attributes for remnant " + username + ".", e);
+        }
+        try {
             remnant.setGravity(false);
             remnant.setInvulnerable(false);
             AttributeInstance knockback = remnant.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
@@ -265,20 +278,24 @@ public class RemnantManager {
             if (maxHealth != null) {
                 remnant.setHealth(maxHealth.getValue());
             }
+        } catch (RuntimeException e) {
+            remnant.remove();
+            throw new IllegalStateException("Could not initialize remnant " + username + ".", e);
+        }
+        try {
             PlayerDataHandler.restoreEquipment(data.config(), remnant);
         } catch (RuntimeException e) {
             remnant.remove();
-            throw new IllegalStateException("Could not restore player data for remnant " + username + ".", e);
+            throw new IllegalStateException("Could not restore equipment for remnant " + username + ".", e);
         }
-        playerDataCache.put(playerUuid, data.config());
-        playerDataLoads.remove(playerUuid);
+        playerDataCache.put(playerUuid, CompletableFuture.completedFuture(data.config()));
 
         saveActiveRemnant(playerUuid, location, username, remnantInstanceId);
         markSpawnedBefore(playerUuid);
 
         Player targetPlayer = Bukkit.getPlayer(playerUuid);
         if (targetPlayer != null) {
-            giveCompassIfPossible(targetPlayer, remnant, targetPlayer != player);
+            giveCompassIfPossible(targetPlayer, remnant, targetPlayer != requester);
         }
 
         String message = String.format(
@@ -290,8 +307,8 @@ public class RemnantManager {
         if (targetPlayer == null) {
             plugin.getLogger().info("Remnant compass will be offered to " + username + " when they next join.");
         }
-        player.sendMessage(ChatColor.GREEN + "A remnant of " + username + " has appeared."
-                + (targetPlayer == player ? " Your compass points the way." : ""));
+        requester.sendMessage(ChatColor.GREEN + "A remnant of " + username + " has appeared."
+                + (targetPlayer == requester ? " Your compass points the way." : ""));
         return true;
     }
 
@@ -313,67 +330,67 @@ public class RemnantManager {
         }
 
         playerNames.forEach((playerUuid, username) -> {
-            CompletableFuture<YamlConfiguration> load =
-                    PlayerDataHandler.loadConfigFromDiskAsync(plugin, username, playerUuid);
-            playerDataLoads.put(playerUuid, load);
+            CompletableFuture<YamlConfiguration> load = getOrLoadPlayerData(playerUuid, username);
             load.whenComplete((playerData, error) -> {
                 if (error != null) {
                     plugin.getLogger().warning("Could not cache player data for active remnant '" + playerUuid + "': " + error.getMessage());
-                } else {
-                    playerDataCache.put(playerUuid, playerData);
                 }
-                playerDataLoads.remove(playerUuid, load);
             });
         });
     }
 
-    public YamlConfiguration removeCachedPlayerData(UUID playerUuid) {
-        playerDataLoads.remove(playerUuid);
-        return playerDataCache.remove(playerUuid);
+    public void removeCachedPlayerData(UUID playerUuid) {
+        CompletableFuture<YamlConfiguration> data = playerDataCache.get(playerUuid);
+        if (data == null) {
+            throw new IllegalStateException("No player-data load was registered for UUID " + playerUuid + ".");
+        }
+        if (!data.isDone()) {
+            throw new IllegalStateException("Player data is still loading for UUID " + playerUuid + ".");
+        }
+        data.join();
+        playerDataCache.remove(playerUuid, data);
     }
 
-    public boolean isPlayerDataLoading(Mannequin remnant) {
-        UUID ownerUuid = getRemnantOwnerUuid(remnant);
-        return ownerUuid != null
-                && !playerDataCache.containsKey(ownerUuid)
-                && playerDataLoads.containsKey(ownerUuid);
+    public YamlConfiguration getCachedPlayerData(UUID playerUuid) {
+        CompletableFuture<YamlConfiguration> data = playerDataCache.get(playerUuid);
+        if (data == null) {
+            throw new IllegalStateException("No player-data load was registered for UUID " + playerUuid + ".");
+        }
+        if (!data.isDone()) {
+            throw new IllegalStateException("Player data is still loading for UUID " + playerUuid + ".");
+        }
+        return data.join();
     }
 
-    public void deferRemnantDeath(Mannequin remnant, Player attacker) {
+    public boolean canRemnantDropItems(Mannequin remnant) {
         UUID ownerUuid = getRemnantOwnerUuid(remnant);
-        if (ownerUuid == null || !deferredRemnantDeaths.add(remnant.getUniqueId())) {
-            return;
+        if (ownerUuid == null) {
+            plugin.getLogger().severe("Prevented remnant death because it has no valid owner UUID.");
+            return false;
         }
 
-        CompletableFuture<YamlConfiguration> load = playerDataLoads.get(ownerUuid);
-        if (load == null) {
-            deferredRemnantDeaths.remove(remnant.getUniqueId());
-            return;
+        CompletableFuture<YamlConfiguration> playerData = playerDataCache.get(ownerUuid);
+        if (playerData == null) {
+            String username = Bukkit.getOfflinePlayer(ownerUuid).getName();
+            playerData = getOrLoadPlayerData(ownerUuid, username == null ? ownerUuid.toString() : username);
         }
-
-        load.whenComplete((playerData, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
-            UUID remnantUuid = remnant.getUniqueId();
-            deferredRemnantDeaths.remove(remnantUuid);
-            if (!remnant.isValid() || remnant.isDead()) {
-                return;
-            }
-            if (error != null) {
-                plugin.getLogger().warning("Remnant data load failed before deferred death for " + ownerUuid + ": " + error.getMessage());
-            } else if (playerData != null) {
-                playerDataCache.put(ownerUuid, playerData);
-            }
-
-            finishingDeferredDeaths.add(remnantUuid);
-            try {
-                remnant.damage(Math.max(1_000.0, remnant.getHealth() + 1_000.0), attacker);
-            } finally {
-                finishingDeferredDeaths.remove(remnantUuid);
-            }
-        }));
+        if (!playerData.isDone()) {
+            return false;
+        }
+        try {
+            PlayerDataHandler.validateRemnantData(playerData.join());
+            return true;
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.SEVERE,
+                    "Prevented remnant death because its items cannot be restored for owner UUID "
+                            + ownerUuid + ".", e);
+            return false;
+        }
     }
 
-    public boolean isFinishingDeferredDeath(Mannequin remnant) {
-        return finishingDeferredDeaths.contains(remnant.getUniqueId());
+    private CompletableFuture<YamlConfiguration> getOrLoadPlayerData(UUID playerUuid, String username) {
+        return playerDataCache.computeIfAbsent(playerUuid,
+                uuid -> PlayerDataHandler.loadConfigFromDiskAsync(plugin, username, uuid));
     }
 
     private UUID getRemnantOwnerUuid(Mannequin remnant) {
@@ -444,7 +461,11 @@ public class RemnantManager {
     }
 
     private void giveCompassIfPossible(Player player, Location location, String username, String instanceId, boolean announce) {
-        if (instanceId == null || hasCompass(player, instanceId)) {
+        if (instanceId == null) {
+            return;
+        }
+        if (hasCompass(player, instanceId)) {
+            markCompassIssued(player.getUniqueId(), instanceId);
             return;
         }
         if (player.getInventory().firstEmpty() < 0) {
@@ -455,6 +476,7 @@ public class RemnantManager {
         ItemStack compass = createCompass(location, username, player.getUniqueId(), instanceId);
         if (player.getInventory().addItem(compass).isEmpty()) {
             player.saveData();
+            markCompassIssued(player.getUniqueId(), instanceId);
             if (announce) {
                 player.sendMessage(ChatColor.GREEN + "Your compass points to your remnant.");
             }
@@ -516,9 +538,33 @@ public class RemnantManager {
         entry.put("z", location.getZ());
         entry.put("username", username);
         entry.put("instance", instanceId);
+        entry.put("compass-issued", false);
         remnants.add(entry);
 
         saveActiveRemnants(remnants);
+    }
+
+    private void markCompassIssued(UUID ownerUuid, String instanceId) {
+        List<Map<String, Object>> activeRemnants = readActiveRemnants();
+        for (Map<String, Object> entry : activeRemnants) {
+            if (ownerUuid.toString().equals(entry.get("uuid"))
+                    && instanceId.equals(entry.get("instance"))) {
+                if (!Boolean.TRUE.equals(entry.get("compass-issued"))) {
+                    entry.put("compass-issued", true);
+                    saveActiveRemnants(activeRemnants);
+                }
+                return;
+            }
+        }
+        plugin.getLogger().warning("Could not record issued compass for remnant " + instanceId
+                + " owned by " + ownerUuid + ": active remnant entry was not found.");
+    }
+
+    public boolean wasCompassIssued(UUID ownerUuid, String instanceId) {
+        return readActiveRemnants().stream()
+                .filter(entry -> ownerUuid.toString().equals(entry.get("uuid"))
+                        && instanceId.equals(entry.get("instance")))
+                .anyMatch(entry -> Boolean.TRUE.equals(entry.get("compass-issued")));
     }
 
     private boolean hasSpawnedBefore(UUID playerUuid) {
@@ -571,33 +617,26 @@ public class RemnantManager {
         saveConfig();
     }
 
-    public void queueCompassCleanup(String ownerId, String instanceId) {
+    public void queueCompassCleanup(String ownerId) {
         List<Map<?, ?>> pending = config.getMapList("pending-compass-cleanup");
-        boolean alreadyQueued = pending.stream().anyMatch(entry ->
-                ownerId.equals(String.valueOf(entry.get("owner")))
-                        && instanceId.equals(String.valueOf(entry.get("instance")))
-        );
+        boolean alreadyQueued = pending.stream()
+                .anyMatch(entry -> ownerId.equals(String.valueOf(entry.get("owner"))));
         if (!alreadyQueued) {
-            pending.add(Map.of("owner", ownerId, "instance", instanceId));
+            pending.add(Map.of("owner", ownerId));
             config.set("pending-compass-cleanup", pending);
             saveConfig();
         }
     }
 
-    public List<String> getPendingCompassCleanup(String ownerId) {
+    public boolean hasPendingCompassCleanup(String ownerId) {
         return config.getMapList("pending-compass-cleanup").stream()
-                .filter(entry -> ownerId.equals(String.valueOf(entry.get("owner"))))
-                .map(entry -> String.valueOf(entry.get("instance")))
-                .toList();
+                .anyMatch(entry -> ownerId.equals(String.valueOf(entry.get("owner"))));
     }
 
     public void clearPendingCompassCleanup(String ownerId) {
         List<Map<String, String>> remaining = config.getMapList("pending-compass-cleanup").stream()
                 .filter(entry -> !ownerId.equals(String.valueOf(entry.get("owner"))))
-                .map(entry -> Map.of(
-                        "owner", String.valueOf(entry.get("owner")),
-                        "instance", String.valueOf(entry.get("instance"))
-                ))
+                .map(entry -> Map.of("owner", String.valueOf(entry.get("owner"))))
                 .toList();
         config.set("pending-compass-cleanup", remaining);
         saveConfig();
@@ -649,6 +688,10 @@ public class RemnantManager {
 
     public NamespacedKey getDropKey() {
         return dropKey;
+    }
+
+    public boolean isPublicPickupEnabled() {
+        return plugin.getConfig().getBoolean("remnants.allow-public-pickup", false);
     }
 
     public MainPlugin getPlugin() {

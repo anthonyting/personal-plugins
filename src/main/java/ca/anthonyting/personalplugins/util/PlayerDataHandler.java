@@ -1,6 +1,7 @@
 package ca.anthonyting.personalplugins.util;
 
 import ca.anthonyting.personalplugins.MainPlugin;
+import com.google.gson.Gson;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.MapDecorations;
 import io.papermc.paper.registry.RegistryAccess;
@@ -9,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -17,21 +19,29 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.World;
 import org.bukkit.block.ShulkerBox;
+import org.bukkit.block.banner.Pattern;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Mannequin;
+import org.bukkit.entity.TropicalFish;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ArmorMeta;
+import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.MusicInstrumentMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.Repairable;
+import org.bukkit.inventory.meta.ShieldMeta;
+import org.bukkit.inventory.meta.TropicalFishBucketMeta;
 import org.bukkit.inventory.meta.trim.ArmorTrim;
 import org.bukkit.inventory.meta.trim.TrimMaterial;
 import org.bukkit.inventory.meta.trim.TrimPattern;
@@ -44,12 +54,25 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class PlayerDataHandler {
+
+    public static class PlayerDataNotFoundException extends IllegalStateException {
+        public PlayerDataNotFoundException(String message) {
+            super(message);
+        }
+    }
+
+    private static final Gson GSON = new Gson();
+
+    private record PlayerAttributeData(String id, Attribute attribute, double base,
+                                       List<AttributeModifier> modifiers) {
+    }
 
     private static final Set<String> KNOWN_ROOT_KEYS = Set.of(
             "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
@@ -75,7 +98,12 @@ public class PlayerDataHandler {
             "minecraft:enchantments", "minecraft:stored_enchantments",
             "minecraft:map_id", "minecraft:container", "minecraft:bundle_contents",
             "minecraft:repair_cost", "minecraft:trim", "minecraft:potion_contents",
-            "minecraft:map_decorations", "minecraft:item_name", "minecraft:map_color"
+            "minecraft:map_decorations", "minecraft:item_name", "minecraft:map_color",
+            "minecraft:fireworks", "minecraft:bucket_entity_data",
+            "minecraft:base_color", "minecraft:banner_patterns",
+            "minecraft:instrument",
+            "minecraft:tropical_fish/base_color", "minecraft:tropical_fish/pattern",
+            "minecraft:tropical_fish/pattern_color", "minecraft:dyed_color"
     );
 
     /**
@@ -118,7 +146,7 @@ public class PlayerDataHandler {
             Bukkit.getLogger().info("[PlayerDataHandler] Loading player data from disk by UUID: " + fileByUuid.getAbsolutePath());
             return fileByUuid;
         }
-        throw new IllegalStateException(String.format(
+        throw new PlayerDataNotFoundException(String.format(
                 "No player data YAML found for '%s' (UUID: %s) in '%s'",
                 username, uuid, folder.getAbsolutePath()
         ));
@@ -248,6 +276,11 @@ public class PlayerDataHandler {
         return items;
     }
 
+    public static void validateRemnantData(YamlConfiguration config) {
+        getRemnantDrops(config);
+        parsePlayerAttributes(config);
+    }
+
     public static int getRemnantExperienceDrop(YamlConfiguration config) {
         long totalExperience = Math.max(0, config.getLong("XpTotal", 0));
         return (int) Math.min(totalExperience, Integer.MAX_VALUE);
@@ -365,15 +398,97 @@ public class PlayerDataHandler {
     }
 
     private static Component parseItemName(Object rawName) {
-        if (rawName instanceof String json) {
-            return GsonComponentSerializer.gson().deserialize(json);
+        if (rawName instanceof String name) {
+            return Component.text(name);
         }
-        if (rawName instanceof Map<?, ?> nameMap
-                && nameMap.size() == 1
-                && nameMap.get("translate") instanceof String translationKey) {
-            return Component.translatable(translationKey);
+        if (rawName instanceof Map<?, ?> nameMap) {
+            return GsonComponentSerializer.gson().deserialize(GSON.toJson(nameMap));
         }
         throw new IllegalStateException("Unsupported or invalid item-name component: " + rawName);
+    }
+
+    private static void parseFireworks(Map<?, ?> fireworks, FireworkMeta meta) {
+        for (Object keyObj : fireworks.keySet()) {
+            String key = String.valueOf(keyObj);
+            if (!Set.of("explosions", "flight_duration").contains(key)) {
+                throw new IllegalStateException("Unsupported fireworks field '" + key + "'.");
+            }
+        }
+
+        if (fireworks.containsKey("flight_duration")) {
+            Object durationValue = fireworks.get("flight_duration");
+            if (!(durationValue instanceof Number duration) || duration.intValue() < 0 || duration.intValue() > 127) {
+                throw new IllegalStateException("Invalid firework flight duration: " + durationValue);
+            }
+            meta.setPower(duration.byteValue());
+        }
+
+        if (fireworks.containsKey("explosions")) {
+            Object explosionsValue = fireworks.get("explosions");
+            if (!(explosionsValue instanceof List<?> explosions)) {
+                throw new IllegalStateException("Invalid firework explosions component.");
+            }
+            for (Object explosionValue : explosions) {
+                if (!(explosionValue instanceof Map<?, ?> explosion)) {
+                    throw new IllegalStateException("Invalid firework explosion entry: " + explosionValue);
+                }
+                meta.addEffect(parseFireworkExplosion(explosion));
+            }
+        }
+    }
+
+    private static FireworkEffect parseFireworkExplosion(Map<?, ?> explosion) {
+        for (Object keyObj : explosion.keySet()) {
+            String key = String.valueOf(keyObj);
+            if (!Set.of("shape", "colors", "fade_colors", "has_trail", "has_twinkle").contains(key)) {
+                throw new IllegalStateException("Unsupported firework explosion field '" + key + "'.");
+            }
+        }
+
+        Object shapeValue = explosion.get("shape");
+        if (!(shapeValue instanceof String shape)) {
+            throw new IllegalStateException("Invalid firework explosion shape: " + shapeValue);
+        }
+        FireworkEffect.Type type;
+        try {
+            type = FireworkEffect.Type.valueOf(shape.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Unknown firework explosion shape '" + shape + "'.", e);
+        }
+
+        FireworkEffect.Builder builder = FireworkEffect.builder().with(type);
+        addFireworkColors(builder, explosion.get("colors"), "colors");
+        addFireworkColors(builder, explosion.get("fade_colors"), "fade_colors");
+        Object trailValue = explosion.get("has_trail");
+        if (trailValue != null) {
+            if (!(trailValue instanceof Boolean trail)) {
+                throw new IllegalStateException("Invalid firework trail value: " + trailValue);
+            }
+            builder.trail(trail);
+        }
+        Object twinkleValue = explosion.get("has_twinkle");
+        if (twinkleValue != null) {
+            if (!(twinkleValue instanceof Boolean twinkle)) {
+                throw new IllegalStateException("Invalid firework twinkle value: " + twinkleValue);
+            }
+            builder.flicker(twinkle);
+        }
+        return builder.build();
+    }
+
+    private static void addFireworkColors(FireworkEffect.Builder builder, Object rawColors, String field) {
+        if (rawColors == null) {
+            return;
+        }
+        if (!(rawColors instanceof List<?> colors)) {
+            throw new IllegalStateException("Invalid firework " + field + " list.");
+        }
+        for (Object colorValue : colors) {
+            if (!(colorValue instanceof Number color) || color.intValue() < 0 || color.intValue() > 0xFFFFFF) {
+                throw new IllegalStateException("Invalid firework color: " + colorValue);
+            }
+            builder.withColor(Color.fromRGB(color.intValue()));
+        }
     }
 
     public static void restoreEquipment(YamlConfiguration config, Mannequin remnant) {
@@ -381,15 +496,35 @@ public class PlayerDataHandler {
     }
 
     public static void restoreAttributes(YamlConfiguration config, Mannequin remnant) {
+        List<String> unsupportedAttributes = new ArrayList<>();
+        for (PlayerAttributeData attributeData : parsePlayerAttributes(config)) {
+            AttributeInstance instance = remnant.getAttribute(attributeData.attribute());
+            if (instance == null) {
+                unsupportedAttributes.add(attributeData.id());
+                continue;
+            }
+            instance.setBaseValue(attributeData.base());
+            for (AttributeModifier modifier : attributeData.modifiers()) {
+                instance.removeModifier(modifier.getKey());
+                instance.addModifier(modifier);
+            }
+        }
+        if (!unsupportedAttributes.isEmpty()) {
+            Bukkit.getLogger().warning("[PlayerDataHandler] Player attributes not supported by mannequin and not applied: "
+                    + unsupportedAttributes);
+        }
+    }
+
+    private static List<PlayerAttributeData> parsePlayerAttributes(YamlConfiguration config) {
         Object rawAttributes = config.get("attributes");
         if (rawAttributes == null) {
-            return;
+            return List.of();
         }
         if (!(rawAttributes instanceof List<?> attributes)) {
             throw new IllegalStateException("Invalid player attributes: expected a list.");
         }
 
-        List<String> unsupportedAttributes = new ArrayList<>();
+        List<PlayerAttributeData> parsedAttributes = new ArrayList<>();
         for (Object rawAttribute : attributes) {
             if (!(rawAttribute instanceof Map<?, ?> attributeMap)
                     || !(attributeMap.get("id") instanceof String id)
@@ -407,7 +542,6 @@ public class PlayerDataHandler {
                 throw new IllegalStateException("Unknown player attribute '" + id + "'.");
             }
 
-            AttributeInstance instance = remnant.getAttribute(attribute);
             Object rawModifiers = attributeMap.get("modifiers");
             List<AttributeModifier> modifiers = new ArrayList<>();
             if (rawModifiers != null) {
@@ -421,20 +555,9 @@ public class PlayerDataHandler {
                     modifiers.add(parseAttributeModifier(modifierMap, id));
                 }
             }
-            if (instance == null) {
-                unsupportedAttributes.add(id);
-                continue;
-            }
-            instance.setBaseValue(base.doubleValue());
-            for (AttributeModifier modifier : modifiers) {
-                instance.removeModifier(modifier.getKey());
-                instance.addModifier(modifier);
-            }
+            parsedAttributes.add(new PlayerAttributeData(id, attribute, base.doubleValue(), List.copyOf(modifiers)));
         }
-        if (!unsupportedAttributes.isEmpty()) {
-            Bukkit.getLogger().warning("[PlayerDataHandler] Player attributes not supported by mannequin and not applied: "
-                    + unsupportedAttributes);
-        }
+        return parsedAttributes;
     }
 
     private static AttributeModifier parseAttributeModifier(Map<?, ?> modifierMap, String attributeId) {
@@ -593,7 +716,46 @@ public class PlayerDataHandler {
         }
 
         if (components.containsKey("minecraft:custom_name")) {
-            meta.setDisplayName(String.valueOf(components.get("minecraft:custom_name")));
+            meta.displayName(parseItemName(components.get("minecraft:custom_name")));
+        }
+
+        if (components.containsKey("minecraft:fireworks")) {
+            if (!(components.get("minecraft:fireworks") instanceof Map<?, ?> fireworks)
+                    || !(meta instanceof FireworkMeta fireworkMeta)) {
+                throw new IllegalStateException("Unsupported or invalid fireworks component.");
+            }
+            parseFireworks(fireworks, fireworkMeta);
+        }
+
+        if (components.containsKey("minecraft:bucket_entity_data")) {
+            parseBucketEntityData(components.get("minecraft:bucket_entity_data"));
+        }
+
+        if (components.containsKey("minecraft:tropical_fish/base_color")
+                || components.containsKey("minecraft:tropical_fish/pattern")
+                || components.containsKey("minecraft:tropical_fish/pattern_color")) {
+            if (!(meta instanceof TropicalFishBucketMeta fishMeta)) {
+                throw new IllegalStateException("Tropical-fish components are only supported on tropical fish buckets.");
+            }
+            if (components.containsKey("minecraft:tropical_fish/base_color")) {
+                fishMeta.setBodyColor(parseDyeColor(
+                        components.get("minecraft:tropical_fish/base_color"), "base_color"));
+            }
+            if (components.containsKey("minecraft:tropical_fish/pattern_color")) {
+                fishMeta.setPatternColor(parseDyeColor(
+                        components.get("minecraft:tropical_fish/pattern_color"), "pattern_color"));
+            }
+            if (components.containsKey("minecraft:tropical_fish/pattern")) {
+                Object patternValue = components.get("minecraft:tropical_fish/pattern");
+                if (!(patternValue instanceof String patternName)) {
+                    throw new IllegalStateException("Invalid tropical-fish pattern: " + patternValue);
+                }
+                try {
+                    fishMeta.setPattern(TropicalFish.Pattern.valueOf(patternName.toUpperCase(Locale.ROOT)));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalStateException("Unknown tropical-fish pattern '" + patternName + "'.", e);
+                }
+            }
         }
 
         if (components.containsKey("minecraft:lore")) {
@@ -610,6 +772,46 @@ public class PlayerDataHandler {
             }
             int damage = damageValue.intValue();
             damageable.setDamage(damage);
+        }
+
+        if (components.containsKey("minecraft:dyed_color")) {
+            Object colorValue = components.get("minecraft:dyed_color");
+            if (!(colorValue instanceof Number color) || !(meta instanceof LeatherArmorMeta leatherArmorMeta)
+                    || color.intValue() < 0 || color.intValue() > 0xFFFFFF) {
+                throw new IllegalStateException("Unsupported or invalid dyed-color component: " + colorValue);
+            }
+            leatherArmorMeta.setColor(Color.fromRGB(color.intValue()));
+        }
+
+        if (components.containsKey("minecraft:base_color")) {
+            Object colorValue = components.get("minecraft:base_color");
+            if (!(meta instanceof ShieldMeta shieldMeta)) {
+                throw new IllegalStateException("Base-color component is only supported on shields.");
+            }
+            shieldMeta.setBaseColor(parseDyeColor(colorValue, "base_color"));
+        }
+
+        if (components.containsKey("minecraft:banner_patterns")) {
+            if (!(components.get("minecraft:banner_patterns") instanceof List<?> rawPatterns)
+                    || !(meta instanceof BannerMeta bannerMeta)) {
+                throw new IllegalStateException("Unsupported or invalid banner-patterns component.");
+            }
+            bannerMeta.setPatterns(parseBannerPatterns(rawPatterns));
+        }
+
+        if (components.containsKey("minecraft:instrument")) {
+            Object instrumentValue = components.get("minecraft:instrument");
+            if (!(instrumentValue instanceof String instrumentId)
+                    || !(meta instanceof MusicInstrumentMeta instrumentMeta)) {
+                throw new IllegalStateException("Unsupported or invalid instrument component: " + instrumentValue);
+            }
+            NamespacedKey instrumentKey = NamespacedKey.fromString(instrumentId);
+            org.bukkit.MusicInstrument instrument = instrumentKey == null ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.INSTRUMENT).get(instrumentKey);
+            if (instrument == null) {
+                throw new IllegalStateException("Unknown music instrument '" + instrumentId + "'.");
+            }
+            instrumentMeta.setInstrument(instrument);
         }
 
         if (components.containsKey("minecraft:repair_cost")) {
@@ -697,6 +899,60 @@ public class PlayerDataHandler {
             }
             parsePotionContents(potionContents, potionMeta);
         }
+    }
+
+    private static void parseBucketEntityData(Object rawEntityData) {
+        if (!(rawEntityData instanceof Map<?, ?> entityData)) {
+            throw new IllegalStateException("Invalid bucket entity data: expected a map.");
+        }
+        for (Object keyObj : entityData.keySet()) {
+            String key = String.valueOf(keyObj);
+            if (!Set.of("Health").contains(key)) {
+                throw new IllegalStateException("Unsupported bucket entity data field '" + key + "'.");
+            }
+        }
+        if (entityData.containsKey("Health")) {
+            Object rawHealth = entityData.get("Health");
+            if (!(rawHealth instanceof Number health) || !Double.isFinite(health.doubleValue())
+                    || health.doubleValue() < 0.0) {
+                throw new IllegalStateException("Invalid bucket entity health: " + rawHealth);
+            }
+            if (health.doubleValue() != 3.0) {
+                throw new IllegalStateException("Cannot preserve non-default bucket entity health: " + rawHealth);
+            }
+        }
+    }
+
+    private static org.bukkit.DyeColor parseDyeColor(Object rawColor, String field) {
+        if (!(rawColor instanceof String colorName)) {
+            throw new IllegalStateException("Invalid tropical-fish " + field + ": " + rawColor);
+        }
+        try {
+            return org.bukkit.DyeColor.valueOf(colorName.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Unknown tropical-fish " + field + " '" + colorName + "'.", e);
+        }
+    }
+
+    private static List<Pattern> parseBannerPatterns(List<?> rawPatterns) {
+        List<Pattern> patterns = new ArrayList<>();
+        for (Object rawPattern : rawPatterns) {
+            if (!(rawPattern instanceof Map<?, ?> patternMap)
+                    || patternMap.size() != 2
+                    || !(patternMap.get("color") instanceof String colorName)
+                    || !(patternMap.get("pattern") instanceof String patternId)) {
+                throw new IllegalStateException("Invalid banner pattern entry: " + rawPattern);
+            }
+            org.bukkit.DyeColor color = parseDyeColor(colorName, "banner pattern color");
+            NamespacedKey patternKey = NamespacedKey.fromString(patternId);
+            org.bukkit.block.banner.PatternType pattern = patternKey == null ? null
+                    : RegistryAccess.registryAccess().getRegistry(RegistryKey.BANNER_PATTERN).get(patternKey);
+            if (pattern == null) {
+                throw new IllegalStateException("Unknown banner pattern '" + patternId + "'.");
+            }
+            patterns.add(new Pattern(color, pattern));
+        }
+        return patterns;
     }
 
     private static void parsePotionContents(Map<?, ?> potionContents, PotionMeta potionMeta) {
