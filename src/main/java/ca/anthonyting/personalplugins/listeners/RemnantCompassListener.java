@@ -47,8 +47,10 @@ public class RemnantCompassListener implements Listener {
         boolean clickedExternalInventory = clickedInventory != null && !clickedPersonalInventory;
         boolean compassOnClickedSlot = isRemnantCompass(event.getCurrentItem());
         boolean compassOnCursor = isRemnantCompass(event.getCursor());
-        boolean bundleContainsCompass = containsRemnantCompass(event.getCurrentItem())
-                || containsRemnantCompass(event.getCursor());
+        boolean removesCompassFromBundle = isBundle(event.getCurrentItem())
+                && containsRemnantCompass(event.getCurrentItem())
+                && event.getClick() == ClickType.RIGHT;
+        boolean insertsCompassIntoBundle = compassOnCursor && isBundle(event.getCurrentItem());
         boolean compassInOffhand = isRemnantCompass(player.getInventory().getItemInOffHand());
         boolean compassInHotbarSwap = event.getHotbarButton() >= 0
                 && isRemnantCompass(player.getInventory().getItem(event.getHotbarButton()));
@@ -81,8 +83,8 @@ public class RemnantCompassListener implements Listener {
                 && (compassOnClickedSlot || compassOnCursor || compassInHotbarSwap);
 
         if (creativeCompassAction
-                || bundleContainsCompass
-                || (compassOnCursor && isBundle(event.getCurrentItem()))
+                || removesCompassFromBundle
+                || insertsCompassIntoBundle
                 || shiftMovesCompassToContainer
                 || dropsCompassFromCursor
                 || collectsCompassFromContainer
@@ -90,7 +92,7 @@ public class RemnantCompassListener implements Listener {
                 || (transfersCompassToExternalInventory && !allowedOffhandSwap)) {
             deny(player, creativeCompassAction
                     ? "The compass is bound to you and cannot be copied."
-                    : bundleContainsCompass || (compassOnCursor && isBundle(event.getCurrentItem()))
+                    : removesCompassFromBundle || insertsCompassIntoBundle
                     ? "The compass cannot be stored in a bundle."
                     : inventoryFull && swapsCompassWithItem
                     ? "Make room in your inventory before swapping the remnant compass."
@@ -219,7 +221,6 @@ public class RemnantCompassListener implements Listener {
 
     private void deny(Player player, String message) {
         player.sendMessage(ChatColor.RED + message);
-        plugin.getLogger().info("Denied remnant compass action by " + player.getName() + ": " + message);
     }
 
     private boolean isRemnantCompass(ItemStack item) {
