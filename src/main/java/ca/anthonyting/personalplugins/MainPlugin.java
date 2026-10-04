@@ -41,14 +41,6 @@ public class MainPlugin extends JavaPlugin {
             }
         }
 
-        if (Bukkit.getVersion().contains("1.15")) {
-            if (getConfig().getBoolean("allow-donkey-dupe")) {
-                getLogger().info("Donkey Dupe allowed.");
-            } else {
-                pluginManager.registerEvents(new ItemDupeListener(), this);
-            }
-        }
-
         if (getConfig().getBoolean("cow-sacrifice")) {
             var cowSacrificeListener = new CowSacrificeListener();
             pluginManager.registerEvents(cowSacrificeListener, this);
