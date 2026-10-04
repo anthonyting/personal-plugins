@@ -49,12 +49,6 @@ public class MainPlugin extends JavaPlugin {
             }
         }
 
-        if (getConfig().getBoolean("allow-many-spawner-mobs")) {
-            getLogger().info("Allow spawners to generate many mobs in a region.");
-        } else {
-            pluginManager.registerEvents(new MobSpawnerListener(), this);
-        }
-
         if (getConfig().getBoolean("cow-sacrifice")) {
             var cowSacrificeListener = new CowSacrificeListener();
             pluginManager.registerEvents(cowSacrificeListener, this);

@@ -9,8 +9,6 @@ disable-console-rename: false
 
 disable-player-head-drop: false
 
-allow-many-spawner-mobs: false
-
 allow-donkey-dupe: false
 
 temp-backup-directory: ""
