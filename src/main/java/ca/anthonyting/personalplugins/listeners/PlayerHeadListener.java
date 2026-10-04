@@ -1,6 +1,10 @@
 package ca.anthonyting.personalplugins.listeners;
 
 import ca.anthonyting.personalplugins.MainPlugin;
+import org.bukkit.Bukkit;
+import org.bukkit.GameRules;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -9,14 +13,10 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Creeper;
-import org.bukkit.World;
 
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.Material;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.Bukkit;
-import org.bukkit.GameRule;
 
 public class PlayerHeadListener implements Listener {
 
@@ -55,7 +55,7 @@ public class PlayerHeadListener implements Listener {
         // drop a player head if player killed by charged creeper
         Player player = event.getEntity();
         World currentWorld = player.getWorld();
-        Boolean doMobLoot = currentWorld.getGameRuleValue(GameRule.DO_MOB_LOOT);
+        Boolean doMobLoot = currentWorld.getGameRuleValue(GameRules.MOB_DROPS);
         if (doMobLoot != null && doMobLoot) {
             Creeper creeperThatKilledPlayer = chargedCreeperThatKilledEntity(player);
             if (creeperThatKilledPlayer != null) {

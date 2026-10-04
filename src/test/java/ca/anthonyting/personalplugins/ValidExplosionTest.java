@@ -1,7 +1,10 @@
 package ca.anthonyting.personalplugins;
 
 import ca.anthonyting.personalplugins.listeners.PlayerHeadListener;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.GameRules;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Creeper;
 
 import org.bukkit.entity.Player;
@@ -55,7 +58,7 @@ public class ValidExplosionTest
 
         Location playerLocation = new Location(world, 0, 64, 0);
 
-        Mockito.when(world.getGameRuleValue(GameRule.DO_MOB_LOOT)).thenReturn(true);
+        Mockito.when(world.getGameRuleValue(GameRules.MOB_DROPS)).thenReturn(true);
 
         Mockito.when(creeper.isPowered()).thenReturn(true);
         Mockito.when(creeper.getWorld()).thenReturn(world);
