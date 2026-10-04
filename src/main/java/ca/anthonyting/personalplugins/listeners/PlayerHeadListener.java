@@ -18,10 +18,21 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.util.function.Function;
+
 public class PlayerHeadListener implements Listener {
 
     private Creeper previousCreeper = null;
     private final MainPlugin plugin = MainPlugin.getInstance();
+    private final Function<Player, ItemStack> headFactory;
+
+    public PlayerHeadListener() {
+        this(PlayerHeadListener::makeHead);
+    }
+
+    PlayerHeadListener(Function<Player, ItemStack> headFactory) {
+        this.headFactory = headFactory;
+    }
 
     private static ItemStack makeHead(Player player) {
         // returns null if setting the player of the skull fails
@@ -57,18 +68,22 @@ public class PlayerHeadListener implements Listener {
         World currentWorld = player.getWorld();
         Boolean doMobLoot = currentWorld.getGameRuleValue(GameRules.MOB_DROPS);
         if (doMobLoot != null && doMobLoot) {
-            Creeper creeperThatKilledPlayer = chargedCreeperThatKilledEntity(player);
-            if (creeperThatKilledPlayer != null) {
-                if (creeperThatKilledPlayer == previousCreeper) {
-                    // only drop one head if multiple people are standing by
-                    return;
-                }
-                previousCreeper = creeperThatKilledPlayer;
-                ItemStack playerHead = makeHead(player);
-                if (playerHead != null) {
-                    plugin.getLogger().info("Player head generated at " + player.getLocation() + " for " + player.getName());
-                    currentWorld.dropItemNaturally(player.getLocation(), playerHead);
-                }
+            dropHeadForChargedCreeper(player, currentWorld);
+        }
+    }
+
+    void dropHeadForChargedCreeper(Player player, World currentWorld) {
+        Creeper creeperThatKilledPlayer = chargedCreeperThatKilledEntity(player);
+        if (creeperThatKilledPlayer != null) {
+            if (creeperThatKilledPlayer == previousCreeper) {
+                // only drop one head if multiple people are standing by
+                return;
+            }
+            previousCreeper = creeperThatKilledPlayer;
+            ItemStack playerHead = headFactory.apply(player);
+            if (playerHead != null) {
+                plugin.getLogger().info("Player head generated at " + player.getLocation() + " for " + player.getName());
+                currentWorld.dropItemNaturally(player.getLocation(), playerHead);
             }
         }
     }

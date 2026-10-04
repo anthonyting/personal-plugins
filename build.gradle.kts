@@ -25,21 +25,18 @@ dependencies {
     // Paper API (Provided by server at runtime)
     compileOnly("io.papermc.paper:paper-api:26.3.build.+")
     
-    // Authlib (Required for GameProfile and skin properties)
-    compileOnly("com.mojang:authlib:10.0.77")
-
     // Compile & Shaded dependencies
-    implementation("net.java.dev.jna:jna:5.12.1")
-    implementation("org.jetbrains:annotations:22.0.0")
+    implementation("net.java.dev.jna:jna:5.19.1")
+    implementation("org.jetbrains:annotations:26.1.0")
 
     // Local JAR (replaces Maven systemPath)
-    implementation(files("build-resources/EmojiChat.jar"))
+    // implementation(files("build-resources/EmojiChat.jar"))
 
     // Testing
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:4.2.0")
-    testImplementation("org.powermock:powermock-api-mockito2:2.0.9")
-    testImplementation("org.powermock:powermock-module-junit4:2.0.9")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
+    testImplementation("org.mockito:mockito-core:5.24.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
+    testRuntimeOnly("io.papermc.paper:paper-api:26.3.build.+")
 }
 
 // Replicates maven-shade-plugin minimization for JNA
@@ -51,6 +48,10 @@ tasks.shadowJar {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks {

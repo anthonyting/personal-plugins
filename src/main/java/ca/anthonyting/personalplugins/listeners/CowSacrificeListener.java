@@ -205,7 +205,7 @@ public class CowSacrificeListener extends CancellableListener {
             };
             clearCowDeathCountTask.playersThatStartedRitual.add(player);
             cowDeathCountByRegion.add(clearCowDeathCountTask);
-            clearCowDeathCountTask.runTaskLaterAsynchronously(plugin, RITUAL_CANCEL_DELAY_SECONDS * 20);
+            clearCowDeathCountTask.runTaskLater(plugin, RITUAL_CANCEL_DELAY_SECONDS * 20);
             return;
         }
 
@@ -264,7 +264,7 @@ public class CowSacrificeListener extends CancellableListener {
                     }
                     bossBar.setTitle("Ritual progress (" + remainingTime + "s)");
                 }
-            }.runTaskTimerAsynchronously(plugin, 0, 20);
+            }.runTaskTimer(plugin, 0, 20);
             task.setBossBarTickTask(bossBarTickTask);
         }
     }
