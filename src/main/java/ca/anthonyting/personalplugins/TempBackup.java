@@ -5,12 +5,14 @@ import ca.anthonyting.personalplugins.util.DirectorySizer;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedList;
 import java.util.Properties;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -19,10 +21,16 @@ import java.util.zip.ZipOutputStream;
 
 public class TempBackup extends BukkitRunnable {
 
+    private static final int MAX_BACKUP_ATTEMPTS = 5;
+    private static final long RETRY_MIN_DELAY_TICKS = 6_000L;
+    private static final long RETRY_MAX_DELAY_TICKS = 9_000L;
+
     private LinkedList<Path> directories = null;
     private final Plugin main = MainPlugin.getInstance();
     private boolean havePlayersBeenOnline;
     private final AtomicBoolean isBackupRunning = new AtomicBoolean();
+    private int backupAttempts;
+    private BukkitTask retryTask;
 
     public TempBackup() {
         this.havePlayersBeenOnline = false;
@@ -30,17 +38,85 @@ public class TempBackup extends BukkitRunnable {
 
     @Override
     public void run() {
+        runBackupAttempt(false);
+    }
+
+    private void runBackupAttempt(boolean isRetry) {
         if (!isBackupRunning.compareAndSet(false, true)) {
             main.getLogger().info("Backup already running. Skipping backup.");
+            if (isRetry) {
+                scheduleRetry();
+            }
             return;
+        }
+
+        if (!isRetry) {
+            synchronized (this) {
+                backupAttempts = 0;
+                if (retryTask != null) {
+                    retryTask.cancel();
+                    retryTask = null;
+                }
+            }
         }
 
         try {
             this.runBackup();
-        } catch (IOException | InterruptedException e) {
-            main.getLogger().log(Level.SEVERE, "Backup failed.", e);
+            synchronized (this) {
+                backupAttempts = 0;
+                if (retryTask != null) {
+                    retryTask.cancel();
+                    retryTask = null;
+                }
+            }
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            handleBackupFailure(e);
         } finally {
             isBackupRunning.set(false);
+        }
+    }
+
+    private void handleBackupFailure(Exception e) {
+        int failedAttempt;
+        synchronized (this) {
+            failedAttempt = ++backupAttempts;
+        }
+
+        if (failedAttempt < MAX_BACKUP_ATTEMPTS) {
+            long delayTicks = ThreadLocalRandom.current().nextLong(
+                    RETRY_MIN_DELAY_TICKS, RETRY_MAX_DELAY_TICKS + 1);
+            main.getLogger().log(Level.SEVERE,
+                    "Backup attempt " + failedAttempt + " of " + MAX_BACKUP_ATTEMPTS
+                            + " failed; retrying in " + (delayTicks / 20) + " seconds.",
+                    e);
+            scheduleRetry(delayTicks);
+        } else {
+            main.getLogger().log(Level.SEVERE,
+                    "Backup failed after " + MAX_BACKUP_ATTEMPTS
+                            + " attempts. It will be retried on the next scheduled backup.",
+                    e);
+        }
+    }
+
+    private void scheduleRetry() {
+        scheduleRetry(ThreadLocalRandom.current().nextLong(
+                RETRY_MIN_DELAY_TICKS, RETRY_MAX_DELAY_TICKS + 1));
+    }
+
+    private synchronized void scheduleRetry(long delayTicks) {
+        if (retryTask == null) {
+            retryTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    synchronized (TempBackup.this) {
+                        retryTask = null;
+                    }
+                    runBackupAttempt(true);
+                }
+            }.runTaskLaterAsynchronously(main, delayTicks);
         }
     }
 

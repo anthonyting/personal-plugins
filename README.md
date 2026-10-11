@@ -5,7 +5,7 @@ What this plugin does:
 - adds natural player head drops from charged creepers blowing up players
 - renames the console window to show the current number of players online
 - adds a periodic backup of world files (as a zip)
-- periodic backup asynchronously saves the last two versions of the worlds in `backup.zip` and `backup-prev.zip`
+- periodic backup asynchronously saves the last two versions of the worlds in `backup.zip` and `backup-prev.zip`; failed backups retry up to five total attempts with a randomized 5-7.5 minute delay
 - stops spawners from spawning if too many of its creations are nearby
 - disable donkey dupe glitch (redundant in 1.16+
 - adds a command to getstats of users with tab completion for documentation
