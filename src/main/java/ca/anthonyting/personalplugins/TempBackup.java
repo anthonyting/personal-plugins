@@ -8,8 +8,11 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedList;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -19,7 +22,7 @@ public class TempBackup extends BukkitRunnable {
     private LinkedList<Path> directories = null;
     private final Plugin main = MainPlugin.getInstance();
     private boolean havePlayersBeenOnline;
-    private boolean isBackupRunning = false;
+    private final AtomicBoolean isBackupRunning = new AtomicBoolean();
 
     public TempBackup() {
         this.havePlayersBeenOnline = false;
@@ -27,19 +30,17 @@ public class TempBackup extends BukkitRunnable {
 
     @Override
     public void run() {
-        if (isBackupRunning) {
+        if (!isBackupRunning.compareAndSet(false, true)) {
             main.getLogger().info("Backup already running. Skipping backup.");
             return;
         }
 
-        isBackupRunning = true;
         try {
             this.runBackup();
         } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            main.getLogger().warning("Backup failed.");
+            main.getLogger().log(Level.SEVERE, "Backup failed.", e);
         } finally {
-            isBackupRunning = false;
+            isBackupRunning.set(false);
         }
     }
 
@@ -86,32 +87,67 @@ public class TempBackup extends BukkitRunnable {
     // modified from https://stackoverflow.com/a/53275074/11972694
     private void pack(Path backupPath) throws IOException {
         Path currBackup = Paths.get(backupPath.toString(), "backup.zip");
-
-        if (Files.exists(currBackup)) {
-            Files.move(currBackup, currBackup.resolveSibling("backup-prev.zip"), StandardCopyOption.REPLACE_EXISTING);
-        }
-
-        Files.createFile(currBackup);
-
-        ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(currBackup));
-        for (Path directory : directories) {
-            main.getLogger().info("Backing up " + directory.getFileName() + "...");
-            try (Stream<Path> paths = Files.walk(directory)) {
-                String currentZipDirectory = directory.getFileName().toString();
-                paths.filter(path -> !Files.isDirectory(path) && !path.getFileName().toString().equals("session.lock"))
-                .forEach(path -> {
-                    ZipEntry zipEntry = new ZipEntry(currentZipDirectory + File.separator + directory.relativize(path));
-                    try {
-                        zs.putNextEntry(zipEntry);
-                        Files.copy(path, zs);
-                        zs.closeEntry();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+        Path stagedBackup = Files.createTempFile(backupPath, "backup-", ".tmp");
+        try {
+            try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(
+                    stagedBackup, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING))) {
+                for (Path directory : directories) {
+                    main.getLogger().info("Backing up " + directory.getFileName() + "...");
+                    try (Stream<Path> paths = Files.walk(directory)) {
+                        String currentZipDirectory = directory.getFileName().toString();
+                        paths.filter(path -> !Files.isDirectory(path) && !path.getFileName().toString().equals("session.lock"))
+                        .forEach(path -> {
+                            ZipEntry zipEntry = new ZipEntry(currentZipDirectory + File.separator + directory.relativize(path));
+                            try {
+                                zs.putNextEntry(zipEntry);
+                                Files.copy(path, zs);
+                                zs.closeEntry();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
                     }
-                });
+                }
             }
+
+            Path previousBackup = currBackup.resolveSibling("backup-prev.zip");
+            boolean currentBackupExists;
+            try {
+                Files.readAttributes(currBackup, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                currentBackupExists = true;
+            } catch (NoSuchFileException e) {
+                currentBackupExists = false;
+            }
+
+            if (currentBackupExists) {
+                main.getLogger().fine("Rotating existing backup " + currBackup.toAbsolutePath()
+                        + " to " + previousBackup.toAbsolutePath());
+                moveAtomicallyReplacing(currBackup, previousBackup);
+            }
+
+            try {
+                moveAtomicallyReplacing(stagedBackup, currBackup);
+            } catch (IOException e) {
+                if (currentBackupExists) {
+                    try {
+                        moveAtomicallyReplacing(previousBackup, currBackup);
+                    } catch (IOException restoreFailure) {
+                        e.addSuppressed(restoreFailure);
+                    }
+                }
+                throw e;
+            }
+        } finally {
+            Files.deleteIfExists(stagedBackup);
         }
-        zs.close();
+    }
+
+    private static void moveAtomicallyReplacing(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**
