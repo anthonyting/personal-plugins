@@ -2,6 +2,8 @@ plugins {
     id("java-library")
     id("com.gradleup.shadow") version "9.6.1"
     id("xyz.jpenilla.run-paper") version "3.1.0"
+    // Provides Mojang-mapped Paper internals (NMS) for version-specific server integrations.
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.24"
 }
 
 group = "ca.anthonyting.personalplugins"
@@ -22,6 +24,8 @@ java {
 }
 
 dependencies {
+    paperweight.paperDevBundle("26.3.build.+")
+
     // Paper API (Provided by server at runtime)
     compileOnly("io.papermc.paper:paper-api:26.3.build.+")
     
@@ -39,10 +43,18 @@ dependencies {
     testRuntimeOnly("io.papermc.paper:paper-api:26.3.build.+")
 }
 
+paperweight.reobfArtifactConfiguration =
+    io.papermc.paperweight.userdev.ReobfArtifactConfiguration.MOJANG_PRODUCTION
+
 // Replicates maven-shade-plugin minimization for JNA
 tasks.shadowJar {
     minimize {
         include(dependency("net.java.dev.jna:jna"))
+    }
+
+    from(rootProject.file("LICENSE")) {
+        into("META-INF")
+        rename { "LICENSE-PersonalPlugins.txt" }
     }
 }
 

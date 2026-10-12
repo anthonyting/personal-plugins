@@ -14,6 +14,9 @@ commands:
     description: Get a stat of yourself or another player
     permission: personalplugins.getstat
     usage: "Usage: /<command> [stat] [player]"
+  localdifficulty:
+    description: Calculate the local difficulty at your location
+    permission: personalplugins.localdifficulty
   emoji:
     description: Send a message with an emoji
     permission: personalplugins.emoji
@@ -35,6 +38,9 @@ permissions:
     default: true
   personalplugins.getstat:
     description: Allows getstat
+    default: true
+  personalplugins.localdifficulty:
+    description: Allows checking local difficulty
     default: true
   personalplugins.emoji:
     description: Allows emoji messages

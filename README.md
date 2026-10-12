@@ -9,6 +9,7 @@ What this plugin does:
 - stops spawners from spawning if too many of its creations are nearby
 - disable donkey dupe glitch (redundant in 1.16+
 - adds a command to getstats of users with tab completion for documentation
+- adds `/localdifficulty` to show the raw and clamped local difficulty at a player's location
 
 ## How to build
 

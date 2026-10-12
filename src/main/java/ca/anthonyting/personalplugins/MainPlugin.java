@@ -95,6 +95,11 @@ public class MainPlugin extends JavaPlugin {
             getStat.setTabCompleter(new GetStatComplete());
         }
 
+        PluginCommand localDifficulty = getCommand("localdifficulty");
+        if (localDifficulty != null) {
+            localDifficulty.setExecutor(new LocalDifficultyCommand());
+        }
+
         var stopServer = getCommand("stopserver");
         if (stopServer != null) {
             stopServer.setExecutor(new StopServer());
