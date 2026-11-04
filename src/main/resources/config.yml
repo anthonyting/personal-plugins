@@ -14,6 +14,17 @@ temp-backup-directory: ""
 # frequency of backups in seconds
 backup-freq: 3600
 
+# Scheduled clean shutdowns allow the external server script to update Paper.
+server-updates:
+  enabled: false
+  # Randomized interval between 0.5 days and this maximum, followed by the next maintenance window.
+  max-interval-days: 7
+  restart-warning-seconds: 300
+  # Server-local time. The server shuts down at a random moment within one of these windows.
+  maintenance-windows:
+    - "03:00-04:00"
+    - "15:00-16:00"
+
 cow-sacrifice: true
 
 remnants:

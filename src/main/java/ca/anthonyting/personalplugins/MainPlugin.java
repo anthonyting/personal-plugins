@@ -20,6 +20,8 @@ public class MainPlugin extends JavaPlugin {
     private ServerListListener serverListListener = null;
     private TempBackup backupMaker;
     private RemnantManager remnantManager;
+    private ServerStopTask serverStopTask;
+    private ScheduledUpdateRestart scheduledUpdateRestart;
 
     private final ArrayList<CancellableListener> cancellableListeners = new ArrayList<>();
 
@@ -80,6 +82,7 @@ public class MainPlugin extends JavaPlugin {
         getConfig().options().copyDefaults(true);
         saveConfig();
 
+        serverStopTask = new ServerStopTask(this);
         remnantManager = new RemnantManager(this);
         registerListeners();
         initializeBackups();
@@ -102,8 +105,11 @@ public class MainPlugin extends JavaPlugin {
 
         var stopServer = getCommand("stopserver");
         if (stopServer != null) {
-            stopServer.setExecutor(new StopServer());
+            var stopServerCommand = new StopServer(serverStopTask);
+            stopServer.setExecutor(stopServerCommand);
         }
+        scheduledUpdateRestart = new ScheduledUpdateRestart(this, serverStopTask);
+        scheduledUpdateRestart.start();
 
         PluginCommand spawnRemnant = getCommand("spawnremnant");
         if (spawnRemnant != null) {
@@ -115,6 +121,12 @@ public class MainPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (scheduledUpdateRestart != null) {
+            scheduledUpdateRestart.stop();
+        }
+        if (serverStopTask != null) {
+            serverStopTask.stop();
+        }
         if (serverListListener != null) {
             if (serverListListener.setTitle(serverListListener.getOrigTitle())) {
                 getLogger().info("Resetting title to original title...");
