@@ -34,7 +34,7 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_tag }}
         run: |
           RELEASE_VERSION="${RELEASE_VERSION#v}"
-          ./gradlew --no-daemon -PpluginVersion="$RELEASE_VERSION" shadowJar
+          bash ./gradlew --no-daemon -PpluginVersion="$RELEASE_VERSION" shadowJar
 
       - name: Prepare release files
         env:

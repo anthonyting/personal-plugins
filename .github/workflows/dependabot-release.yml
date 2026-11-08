@@ -50,7 +50,7 @@ jobs:
       - name: Run tests and build versioned shaded JAR
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: ./gradlew --no-daemon -PpluginVersion="$RELEASE_VERSION" test shadowJar
+        run: bash ./gradlew --no-daemon -PpluginVersion="$RELEASE_VERSION" test shadowJar
 
       - name: Prepare release files
         env:
