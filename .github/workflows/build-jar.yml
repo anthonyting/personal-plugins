@@ -1,0 +1,52 @@
+name: Build JAR
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing Git tag to build and release (for example, v1.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+
+      - name: Build shaded JAR
+        env:
+          RELEASE_VERSION: ${{ inputs.release_tag }}
+        run: |
+          RELEASE_VERSION="${RELEASE_VERSION#v}"
+          ./gradlew --no-daemon -PpluginVersion="$RELEASE_VERSION" shadowJar
+
+      - name: Prepare release files
+        env:
+          RELEASE_VERSION: ${{ inputs.release_tag }}
+        run: |
+          RELEASE_VERSION="${RELEASE_VERSION#v}"
+          mkdir release-assets
+          cp "build/libs/PersonalPlugins-${RELEASE_VERSION}-all.jar" release-assets/PersonalPlugins.jar
+          sha256sum release-assets/PersonalPlugins.jar | cut -d ' ' -f 1 > release-assets/PersonalPlugins.jar.sha256
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release create "$RELEASE_TAG" release-assets/PersonalPlugins.jar release-assets/PersonalPlugins.jar.sha256 LICENSE --title "$RELEASE_TAG" --generate-notes

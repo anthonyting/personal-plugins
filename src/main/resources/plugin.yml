@@ -1,6 +1,6 @@
 main: ca.anthonyting.personalplugins.MainPlugin
 name: Custom
-version: "0.2"
+version: "${version}"
 api-version: "1.21"
 commands:
   forcebackup:

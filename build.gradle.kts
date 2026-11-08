@@ -7,7 +7,9 @@ plugins {
 }
 
 group = "ca.anthonyting.personalplugins"
-version = "1.0"
+version = providers.gradleProperty("pluginVersion")
+    .orElse(providers.fileContents(layout.projectDirectory.file("version.txt")).asText.map { it.trim() })
+    .get()
 
 repositories {
     mavenCentral()
@@ -60,6 +62,11 @@ tasks.shadowJar {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+}
+
+val pluginVersion = project.version.toString()
+tasks.processResources {
+    expand("version" to pluginVersion)
 }
 
 tasks.test {
