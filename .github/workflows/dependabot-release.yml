@@ -5,7 +5,7 @@ on:
     types: [closed]
 
 concurrency:
-  group: dependabot-security-release-${{ github.event.pull_request.number }}
+  group: personal-plugins-release
   cancel-in-progress: false
 
 jobs:
@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
@@ -36,16 +37,7 @@ jobs:
 
       - name: Determine release version
         id: version
-        run: |
-          base_version="$(tr -d '[:space:]' < version.txt)"
-          if [[ ! "$base_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "version.txt must contain a major.minor.patch SemVer version." >&2
-            exit 1
-          fi
-          major="${BASH_REMATCH[1]}"
-          minor="${BASH_REMATCH[2]}"
-          patch="${BASH_REMATCH[3]}"
-          echo "version=${major}.${minor}.$((patch + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/next-plugin-version.sh
 
       - name: Run tests and build versioned shaded JAR
         env:
@@ -103,4 +95,5 @@ jobs:
             release-assets/PersonalPlugins.jar.sha256 \
             --target "$MERGE_SHA" \
             --title "$RELEASE_TAG" \
-            --generate-notes
+            --generate-notes \
+            --latest
