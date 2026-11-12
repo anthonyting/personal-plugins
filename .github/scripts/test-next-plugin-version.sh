@@ -28,7 +28,7 @@ assert_release_version() {
   local expected="$2"
   shift 2
   local actual
-  actual="$(cd "$repository" && bash .github/scripts/next-plugin-version.sh "$@")"
+  actual="$(cd "$repository" && env -u GITHUB_OUTPUT bash .github/scripts/next-plugin-version.sh "$@")"
   if [[ "$actual" != "$expected" || "$(tr -d '[:space:]' < "$repository/version.txt")" != "$expected" ]]; then
     echo "Expected release version and version.txt to be $expected; got $actual." >&2
     exit 1
@@ -40,7 +40,7 @@ assert_rejected_without_changing_version() {
   local original_version
   original_version="$(tr -d '[:space:]' < "$repository/version.txt")"
   shift
-  if (cd "$repository" && bash .github/scripts/next-plugin-version.sh "$@") >/dev/null 2>&1; then
+  if (cd "$repository" && env -u GITHUB_OUTPUT bash .github/scripts/next-plugin-version.sh "$@") >/dev/null 2>&1; then
     echo "Expected version request '$*' to be rejected." >&2
     exit 1
   fi
