@@ -2,6 +2,11 @@ name: Build JAR
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Optional release version, greater than the current version
+        required: false
+        type: string
 
 concurrency:
   group: personal-plugins-release
@@ -32,7 +37,9 @@ jobs:
 
       - name: Determine release version
         id: version
-        run: bash .github/scripts/next-plugin-version.sh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: bash .github/scripts/next-plugin-version.sh "$REQUESTED_VERSION"
 
       - name: Run tests and build shaded JAR
         env:
@@ -61,3 +68,17 @@ jobs:
             --title "$RELEASE_TAG" \
             --generate-notes \
             --latest
+
+      - name: Commit version.txt update
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.txt
+          if git diff --cached --quiet; then
+            echo "version.txt is already current."
+            exit 0
+          fi
+          git commit -m "chore: set plugin version to $RELEASE_VERSION"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

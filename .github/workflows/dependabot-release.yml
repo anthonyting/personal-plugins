@@ -51,6 +51,7 @@ jobs:
           mkdir release-assets
           cp "build/libs/PersonalPlugins-${RELEASE_VERSION}-all.jar" release-assets/PersonalPlugins.jar
           sha256sum release-assets/PersonalPlugins.jar | cut -d ' ' -f 1 > release-assets/PersonalPlugins.jar.sha256
+          cp version.txt release-assets/version.txt
 
       - name: Upload release files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -65,11 +66,33 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
       - name: Download release files
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: personalplugins-release
           path: release-assets
+
+      - name: Verify release version is not stale
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          current_version="$(tr -d '[:space:]' < version.txt)"
+          version_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [[ ! "$current_version" =~ $version_pattern || ! "$RELEASE_VERSION" =~ $version_pattern ]]; then
+            echo "version.txt or the requested release version is not valid major.minor.patch SemVer." >&2
+            exit 1
+          fi
+          latest_version="$(printf '%s\n%s\n' "$current_version" "$RELEASE_VERSION" | sort -V | tail -n 1)"
+          if [[ "$latest_version" != "$RELEASE_VERSION" ]]; then
+            echo "Refusing to release $RELEASE_VERSION because version.txt is already at $current_version." >&2
+            exit 1
+          fi
 
       - name: Check whether release already exists
         id: existing-release
@@ -97,3 +120,19 @@ jobs:
             --title "$RELEASE_TAG" \
             --generate-notes \
             --latest
+
+      - name: Commit version.txt update
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          cp release-assets/version.txt version.txt
+          git add version.txt
+          if git diff --cached --quiet; then
+            echo "version.txt is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: set plugin version to $RELEASE_VERSION"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
