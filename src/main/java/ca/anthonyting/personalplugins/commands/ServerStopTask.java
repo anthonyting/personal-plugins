@@ -33,7 +33,7 @@ public class ServerStopTask {
 
         cancel();
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
-        long[] lastAnnouncedSecond = {seconds};
+        long[] nextAnnouncementSecond = {nextAnnouncementSeconds(seconds)};
         broadcast(String.format("Restarting in %d seconds...", seconds));
         stopTask = new BukkitRunnable() {
             @Override
@@ -50,9 +50,9 @@ public class ServerStopTask {
                 }
 
                 long secondsRemaining = remainingSeconds(remainingNanos);
-                if (secondsRemaining != lastAnnouncedSecond[0]) {
-                    lastAnnouncedSecond[0] = secondsRemaining;
+                if (secondsRemaining <= nextAnnouncementSecond[0]) {
                     broadcast(String.format("%d...", secondsRemaining));
+                    nextAnnouncementSecond[0] = nextAnnouncementSeconds(secondsRemaining);
                 }
             }
         }.runTaskTimer(plugin, 1L, 1L);
@@ -69,5 +69,29 @@ public class ServerStopTask {
 
     static long remainingSeconds(long remainingNanos) {
         return (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1);
+    }
+
+    static long nextAnnouncementSeconds(long secondsRemaining) {
+        long intervalSeconds;
+        long minimumAnnouncementSeconds;
+        if (secondsRemaining > 3600) {
+            intervalSeconds = 1800;
+            minimumAnnouncementSeconds = 3600;
+        } else if (secondsRemaining > 600) {
+            intervalSeconds = 900;
+            minimumAnnouncementSeconds = 600;
+        } else if (secondsRemaining > 60) {
+            intervalSeconds = 300;
+            minimumAnnouncementSeconds = 60;
+        } else if (secondsRemaining > 10) {
+            intervalSeconds = 30;
+            minimumAnnouncementSeconds = 10;
+        } else {
+            intervalSeconds = 1;
+            minimumAnnouncementSeconds = 1;
+        }
+
+        long nextInterval = ((secondsRemaining - 1) / intervalSeconds) * intervalSeconds;
+        return Math.max(minimumAnnouncementSeconds, nextInterval);
     }
 }
